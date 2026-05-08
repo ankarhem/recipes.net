@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using AwesomeAssertions;
 using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace Web.Tests;
@@ -13,7 +14,7 @@ public class HealthCheckTests(WebApplicationFactory<Program> factory)
     public async Task HealthCheck_Returns200()
     {
         var response = await _client.GetAsync("/healthcheck");
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     [Fact]
@@ -23,7 +24,7 @@ public class HealthCheckTests(WebApplicationFactory<Program> factory)
         var json = await response.Content.ReadAsStringAsync();
         var doc = JsonDocument.Parse(json);
 
-        Assert.True(doc.RootElement.TryGetProperty("commit", out var commit));
-        Assert.False(string.IsNullOrEmpty(commit.GetString()));
+        doc.RootElement.TryGetProperty("commit", out var commit).Should().BeTrue();
+        commit.GetString().Should().NotBeNullOrEmpty();
     }
 }
