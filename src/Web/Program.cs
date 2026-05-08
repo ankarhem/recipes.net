@@ -1,5 +1,6 @@
 using App.Notifications;
 using Infrastructure.Notifications;
+using Scalar.AspNetCore;
 using Web.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -19,7 +20,11 @@ var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    app.MapOpenApi("/openapi/{documentName}/openapi.{yaml|json}");
+    app.MapScalarApiReference(
+        "/docs/v1",
+        options => options.WithOpenApiRoutePattern("/openapi/{documentName}/openapi.yaml")
+    );
 }
 
 app.UseHttpsRedirection();

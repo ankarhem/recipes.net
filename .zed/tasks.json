@@ -1,0 +1,17 @@
+[
+  {
+    "label": "Run Web",
+    "command": "dotnet watch --project src/Web/Web.csproj",
+    "cwd": "$ZED_WORKTREE_ROOT"
+  },
+  {
+    "label": "Run Tests",
+    "command": "dotnet test checkout-workflows.slnx",
+    "cwd": "$ZED_WORKTREE_ROOT"
+  },
+  {
+    "label": "Build",
+    "command": "dotnet build checkout-workflows.slnx",
+    "cwd": "$ZED_WORKTREE_ROOT"
+  }
+]
