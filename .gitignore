@@ -1,0 +1,71 @@
+## .NET
+bin/
+obj/
+publish/
+*.user
+*.suo
+*.cache
+*.dll
+*.pdb
+*.exe
+
+## Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+## Visual Studio
+.vs/
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.userprefs
+
+## Rider
+.idea/
+*.sln.iml
+
+## VS Code
+.vscode/
+
+## NuGet
+**/[Pp]ackages/*
+*.nupkg
+*.snupkg
+**/[Pp]ackage/[Ll]ocal/
+[Nn]u[Gg]et.settings.dat
+
+## Test results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+*.VisualState.xml
+TestResult.xml
+nunit-*.xml
+*.trx
+
+## Coverage
+*.coverage
+*.coveragexml
+coverage.*
+*.lcov
+TestResults/
+**/TestResults/**
+
+## OS files
+.DS_Store
+Thumbs.db
+
+## Nix / direnv
+.direnv/
+.pre-commit-config.yaml
