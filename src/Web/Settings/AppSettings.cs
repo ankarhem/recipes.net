@@ -2,7 +2,15 @@ namespace Web.Settings;
 
 public sealed class AppSettings
 {
+    public string ServiceName { get; init; } = "checkout-workflows";
+    public OtelSettings Otel { get; init; } = new();
     public TemporalSettings Temporal { get; init; } = new();
+}
+
+public sealed class OtelSettings
+{
+    public string? OtlpEndpoint { get; init; }
+    public bool ConsoleExporterEnabled { get; init; }
 }
 
 public sealed class TemporalSettings

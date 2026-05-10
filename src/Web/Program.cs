@@ -26,15 +26,12 @@ builder.Services.AddHttpClient<INotificationClient, NotificationClient>();
 var appSettings = new AppSettings();
 builder.Configuration.Bind(appSettings);
 
-var otlpEndpoint = builder.Configuration["Otlp:Endpoint"];
-var consoleExporterEnabled = builder.Configuration.GetValue("Otel:ConsoleExporterEnabled", false);
-
 builder
     .Services.AddOpenTelemetry()
     .ConfigureResource(resource =>
         resource
             .AddService(
-                serviceName: builder.Configuration["ServiceName"] ?? "checkout-workflows",
+                serviceName: appSettings.ServiceName,
                 serviceVersion: typeof(Program).Assembly.GetName().Version?.ToString() ?? "unknown"
             )
             .AddAttributes(
@@ -61,16 +58,16 @@ builder
                 options.RecordException = true;
             });
 
-        if (consoleExporterEnabled)
+        if (appSettings.Otel.ConsoleExporterEnabled)
         {
             tracing.AddConsoleExporter();
         }
 
-        if (otlpEndpoint is not null)
+        if (appSettings.Otel.OtlpEndpoint is not null)
         {
             tracing.AddOtlpExporter(options =>
             {
-                options.Endpoint = new Uri(otlpEndpoint);
+                options.Endpoint = new Uri(appSettings.Otel.OtlpEndpoint);
                 options.Protocol = OtlpExportProtocol.Grpc;
             });
         }
@@ -82,7 +79,7 @@ builder
             .AddHttpClientInstrumentation()
             .AddRuntimeInstrumentation();
 
-        if (consoleExporterEnabled)
+        if (appSettings.Otel.ConsoleExporterEnabled)
         {
             metrics.AddConsoleExporter(
                 (_, readerOptions) =>
@@ -93,12 +90,12 @@ builder
             );
         }
 
-        if (otlpEndpoint is not null)
+        if (appSettings.Otel.OtlpEndpoint is not null)
         {
             metrics.AddOtlpExporter(
                 (exporterOptions, readerOptions) =>
                 {
-                    exporterOptions.Endpoint = new Uri(otlpEndpoint);
+                    exporterOptions.Endpoint = new Uri(appSettings.Otel.OtlpEndpoint);
                     readerOptions.TemporalityPreference = MetricReaderTemporalityPreference.Delta;
                 }
             );
