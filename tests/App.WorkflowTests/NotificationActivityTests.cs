@@ -65,13 +65,14 @@ public class NotificationActivityTests
     public async Task SendNotificationAsync_5xxError_IsRetryable()
     {
         await using var env = await WorkflowEnvironment.StartTimeSkippingAsync();
+        const string errorBody = "Internal Server Error";
 
         var client = Substitute.For<INotificationClient>();
         client
             .SendAsync(default!, default, default, default)
             .ReturnsForAnyArgs(_ =>
                 throw new HttpRequestException(
-                    "server error",
+                    $"server error: {errorBody}",
                     null,
                     HttpStatusCode.InternalServerError
                 )
@@ -96,6 +97,7 @@ public class NotificationActivityTests
                 .Which;
 
             appFailure.Message.Should().Contain("HTTP 500");
+            appFailure.Message.Should().Contain(errorBody);
             appFailure.NonRetryable.Should().BeFalse();
         });
 
@@ -118,12 +120,13 @@ public class NotificationActivityTests
     public async Task SendNotificationAsync_ClientError_IsNonRetryable(HttpStatusCode statusCode)
     {
         await using var env = await WorkflowEnvironment.StartTimeSkippingAsync();
+        const string errorBody = """{"error":"bad request"}""";
 
         var client = Substitute.For<INotificationClient>();
         client
             .SendAsync(default!, default, default, default)
             .ReturnsForAnyArgs(_ =>
-                throw new HttpRequestException("client error", null, statusCode)
+                throw new HttpRequestException($"client error: {errorBody}", null, statusCode)
             );
 
         using var worker = CreateWorker(env, client);
@@ -145,6 +148,7 @@ public class NotificationActivityTests
                 .Which;
 
             appFailure.Message.Should().Contain($"HTTP {(int)statusCode}");
+            appFailure.Message.Should().Contain(errorBody);
             appFailure.NonRetryable.Should().BeTrue();
         });
 
@@ -167,12 +171,17 @@ public class NotificationActivityTests
     )
     {
         await using var env = await WorkflowEnvironment.StartTimeSkippingAsync();
+        const string errorBody = """{"error":"retryable client error"}""";
 
         var client = Substitute.For<INotificationClient>();
         client
             .SendAsync(default!, default, default, default)
             .ReturnsForAnyArgs(_ =>
-                throw new HttpRequestException("retryable client error", null, statusCode)
+                throw new HttpRequestException(
+                    $"retryable client error: {errorBody}",
+                    null,
+                    statusCode
+                )
             );
 
         using var worker = CreateWorker(env, client);
@@ -194,6 +203,7 @@ public class NotificationActivityTests
                 .Which;
 
             appFailure.Message.Should().Contain($"HTTP {(int)statusCode}");
+            appFailure.Message.Should().Contain(errorBody);
             appFailure.NonRetryable.Should().BeFalse();
         });
 

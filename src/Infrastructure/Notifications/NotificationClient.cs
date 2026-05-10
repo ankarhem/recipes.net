@@ -8,6 +8,8 @@ namespace Infrastructure.Notifications;
 public sealed class NotificationClient(HttpClient httpClient, ILogger<NotificationClient> logger)
     : INotificationClient
 {
+    private const int MaxErrorResponseBodyLength = 2048;
+
     private readonly ILogger<NotificationClient> _logger = logger;
 
     public async Task SendAsync(
@@ -32,7 +34,28 @@ public sealed class NotificationClient(HttpClient httpClient, ILogger<Notificati
 
         _logger.LogDebug("Sending HTTP POST to {TargetUrl}", targetUrl);
         using var response = await httpClient.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            if (responseBody.Length > MaxErrorResponseBodyLength)
+            {
+                responseBody = responseBody[..MaxErrorResponseBodyLength];
+            }
+
+            _logger.LogWarning(
+                "HTTP POST to {TargetUrl} failed with {StatusCode}: {ResponseBody}",
+                targetUrl,
+                (int)response.StatusCode,
+                responseBody
+            );
+            throw new HttpRequestException(
+                $"HTTP {(int)response.StatusCode}: {responseBody}",
+                null,
+                response.StatusCode
+            );
+        }
+
         _logger.LogDebug(
             "HTTP POST to {TargetUrl} succeeded with {StatusCode}",
             targetUrl,
