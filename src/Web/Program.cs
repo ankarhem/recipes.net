@@ -22,6 +22,7 @@ builder
     });
 builder.Services.AddOpenApi();
 builder.Services.AddHttpClient<INotificationClient, NotificationClient>();
+builder.Services.AddProblemDetails();
 
 var appSettings = new AppSettings();
 builder.Configuration.Bind(appSettings);
@@ -110,6 +111,7 @@ builder.Services.AddTemporalClient(options =>
 });
 
 builder.Services.AddSingleton<INotificationService>(sp => new NotificationService(
+    sp.GetRequiredService<ILogger<NotificationService>>(),
     sp.GetRequiredService<ITemporalClient>(),
     appSettings.Temporal.TaskQueue
 ));
@@ -131,6 +133,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseExceptionHandler();
+app.UseStatusCodePages();
 app.MapControllers();
 
 app.Run();

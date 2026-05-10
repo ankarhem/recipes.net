@@ -1,11 +1,15 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using App.Notifications;
+using Microsoft.Extensions.Logging;
 
 namespace Infrastructure.Notifications;
 
-public sealed class NotificationClient(HttpClient httpClient) : INotificationClient
+public sealed class NotificationClient(HttpClient httpClient, ILogger<NotificationClient> logger)
+    : INotificationClient
 {
+    private readonly ILogger<NotificationClient> _logger = logger;
+
     public async Task SendAsync(
         Uri targetUrl,
         JsonElement body,
@@ -26,7 +30,13 @@ public sealed class NotificationClient(HttpClient httpClient) : INotificationCli
             }
         }
 
+        _logger.LogDebug("Sending HTTP POST to {TargetUrl}", targetUrl);
         using var response = await httpClient.SendAsync(request, cancellationToken);
         response.EnsureSuccessStatusCode();
+        _logger.LogDebug(
+            "HTTP POST to {TargetUrl} succeeded with {StatusCode}",
+            targetUrl,
+            response.StatusCode
+        );
     }
 }

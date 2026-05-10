@@ -2,5 +2,8 @@ namespace App.Notifications;
 
 public interface INotificationService
 {
-    Task SendAsync(SendNotificationCommand command, CancellationToken cancellationToken = default);
+    Task<string> SendAsync(
+        SendNotificationCommand command,
+        CancellationToken cancellationToken = default
+    );
 }
