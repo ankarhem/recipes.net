@@ -29,7 +29,7 @@ public sealed class Iso8601DurationConverter : JsonConverter<TimeSpan>
     {
         if (value.Length < 3 || value[0] != 'P')
         {
-            throw new FormatException($"Invalid ISO 8601 duration: '{value}'");
+            throw new JsonException($"Invalid ISO 8601 duration: '{value}'");
         }
 
         long totalTicks = 0;
@@ -65,7 +65,7 @@ public sealed class Iso8601DurationConverter : JsonConverter<TimeSpan>
 
         if (numberStart < part.Length)
         {
-            throw new FormatException(
+            throw new JsonException(
                 $"Invalid ISO 8601 duration component: '{part[numberStart..]}'"
             );
         }

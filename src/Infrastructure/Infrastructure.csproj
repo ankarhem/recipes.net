@@ -2,9 +2,6 @@
   <ItemGroup>
     <ProjectReference Include="..\App\App.csproj" />
   </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="Temporalio" Version="1.14.0" />
-  </ItemGroup>
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>

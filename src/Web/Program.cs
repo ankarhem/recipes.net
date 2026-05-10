@@ -30,7 +30,7 @@ builder.Services.AddSingleton<INotificationService>(sp => new NotificationServic
 
 builder
     .Services.AddHostedTemporalWorker(appSettings.Temporal.TaskQueue)
-    .AddSingletonActivities<NotificationActivities>()
+    .AddTransientActivities<NotificationActivities>()
     .AddWorkflow<NotificationWorkflow>();
 
 var app = builder.Build();

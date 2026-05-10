@@ -13,6 +13,9 @@ public sealed class NotificationService(ITemporalClient client, string taskQueue
         await client.StartWorkflowAsync(
             (NotificationWorkflow wf) => wf.RunAsync(command),
             new(id: $"notification-{Guid.NewGuid()}", taskQueue)
+            {
+                Rpc = new() { CancellationToken = cancellationToken },
+            }
         );
     }
 }

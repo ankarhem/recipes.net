@@ -1,3 +1,4 @@
+using System.Text.Json;
 using AwesomeAssertions;
 using Web.Serialization;
 using Xunit;
@@ -46,10 +47,10 @@ public class Iso8601DurationTests
     [InlineData("X")]
     [InlineData("PT")]
     [InlineData("P")]
-    public void ParseIso8601Duration_InvalidInput_ThrowsFormatException(string input)
+    public void ParseIso8601Duration_InvalidInput_ThrowsJsonException(string input)
     {
         var act = () => Iso8601DurationConverter.ParseIso8601Duration(input);
 
-        act.Should().Throw<FormatException>();
+        act.Should().Throw<JsonException>();
     }
 }
