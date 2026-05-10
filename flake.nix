@@ -49,6 +49,7 @@
                 dotnet
                 omnisharp-roslyn
                 nuget
+                temporal-cli
               ]
               ++ config.pre-commit.settings.enabledPackages;
           };

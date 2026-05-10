@@ -26,6 +26,7 @@ public sealed class NotificationClient(HttpClient httpClient) : INotificationCli
             }
         }
 
-        await httpClient.SendAsync(request, cancellationToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        response.EnsureSuccessStatusCode();
     }
 }

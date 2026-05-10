@@ -1,7 +1,10 @@
 using App.Notifications;
 using Infrastructure.Notifications;
 using Scalar.AspNetCore;
+using Temporalio.Client;
+using Temporalio.Extensions.Hosting;
 using Web.Serialization;
+using Web.Settings;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,7 +17,21 @@ builder
     });
 builder.Services.AddOpenApi();
 builder.Services.AddHttpClient<INotificationClient, NotificationClient>();
-builder.Services.AddSingleton<INotificationService, NotificationService>();
+
+var appSettings = new AppSettings();
+builder.Configuration.Bind(appSettings);
+
+builder.Services.AddTemporalClient(appSettings.Temporal.Target, appSettings.Temporal.Namespace);
+
+builder.Services.AddSingleton<INotificationService>(sp => new NotificationService(
+    sp.GetRequiredService<ITemporalClient>(),
+    appSettings.Temporal.TaskQueue
+));
+
+builder
+    .Services.AddHostedTemporalWorker(appSettings.Temporal.TaskQueue)
+    .AddSingletonActivities<NotificationActivities>()
+    .AddWorkflow<NotificationWorkflow>();
 
 var app = builder.Build();
 

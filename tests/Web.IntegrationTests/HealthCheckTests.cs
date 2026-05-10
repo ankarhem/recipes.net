@@ -1,12 +1,11 @@
 using System.Net;
 using System.Text.Json;
 using AwesomeAssertions;
-using Microsoft.AspNetCore.Mvc.Testing;
 
-namespace Web.Tests;
+namespace Web.IntegrationTests;
 
-public class HealthCheckTests(WebApplicationFactory<Program> factory)
-    : IClassFixture<WebApplicationFactory<Program>>
+public class HealthCheckTests(IntegrationTestFixture factory)
+    : IClassFixture<IntegrationTestFixture>
 {
     private readonly HttpClient _client = factory.CreateClient();
 

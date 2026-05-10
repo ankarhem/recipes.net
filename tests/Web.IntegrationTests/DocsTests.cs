@@ -1,12 +1,10 @@
 using System.Net;
 using AwesomeAssertions;
-using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
 
-namespace Web.Tests;
+namespace Web.IntegrationTests;
 
-public class DocsTests(WebApplicationFactory<Program> factory)
-    : IClassFixture<WebApplicationFactory<Program>>
+public class DocsTests(IntegrationTestFixture factory) : IClassFixture<IntegrationTestFixture>
 {
     private readonly HttpClient _client = factory.CreateClient();
 
