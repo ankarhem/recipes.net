@@ -30,5 +30,13 @@ public sealed class NotificationActivities(INotificationClient client)
                 nonRetryable: nonRetryable
             );
         }
+        catch (HttpRequestException)
+        {
+            throw new ApplicationFailureException(
+                "Notification failed: network error",
+                errorType: null,
+                nonRetryable: false
+            );
+        }
     }
 }

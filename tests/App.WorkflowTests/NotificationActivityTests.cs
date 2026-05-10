@@ -18,7 +18,7 @@ public class NotificationActivityTests
         {
             Body = JsonSerializer.Deserialize<JsonElement>("""{"message": "hello"}"""),
             TargetUrl = new Uri("https://example.com/webhook"),
-            Headers = null,
+            Headers = new Dictionary<string, string> { ["X-Custom"] = "value" },
             Delay = null,
         };
 
@@ -55,8 +55,8 @@ public class NotificationActivityTests
             .Received(1)
             .SendAsync(
                 Arg.Is<Uri>(u => u == new Uri("https://example.com/webhook")),
-                Arg.Any<JsonElement>(),
-                Arg.Any<Dictionary<string, string>?>(),
+                Arg.Is<JsonElement>(e => e.GetProperty("message").GetString() == "hello"),
+                Arg.Is<Dictionary<string, string>?>(h => h!["X-Custom"] == "value"),
                 Arg.Any<CancellationToken>()
             );
     }
@@ -98,6 +98,16 @@ public class NotificationActivityTests
             appFailure.Message.Should().Contain("HTTP 500");
             appFailure.NonRetryable.Should().BeFalse();
         });
+
+        // Workflow retries MaximumAttempts = 5 times
+        await client
+            .Received(5)
+            .SendAsync(
+                Arg.Any<Uri>(),
+                Arg.Any<JsonElement>(),
+                Arg.Any<Dictionary<string, string>?>(),
+                Arg.Any<CancellationToken>()
+            );
     }
 
     [Theory]
@@ -105,7 +115,7 @@ public class NotificationActivityTests
     [InlineData(HttpStatusCode.Unauthorized)]
     [InlineData(HttpStatusCode.Forbidden)]
     [InlineData(HttpStatusCode.NotFound)]
-    public async Task SendNotificationAsync_ClientError_NonRetryable(HttpStatusCode statusCode)
+    public async Task SendNotificationAsync_ClientError_IsNonRetryable(HttpStatusCode statusCode)
     {
         await using var env = await WorkflowEnvironment.StartTimeSkippingAsync();
 
@@ -137,6 +147,16 @@ public class NotificationActivityTests
             appFailure.Message.Should().Contain($"HTTP {(int)statusCode}");
             appFailure.NonRetryable.Should().BeTrue();
         });
+
+        // Non-retryable: must only be called once
+        await client
+            .Received(1)
+            .SendAsync(
+                Arg.Any<Uri>(),
+                Arg.Any<JsonElement>(),
+                Arg.Any<Dictionary<string, string>?>(),
+                Arg.Any<CancellationToken>()
+            );
     }
 
     [Theory]
@@ -173,7 +193,61 @@ public class NotificationActivityTests
                 .BeOfType<ApplicationFailureException>()
                 .Which;
 
+            appFailure.Message.Should().Contain($"HTTP {(int)statusCode}");
             appFailure.NonRetryable.Should().BeFalse();
         });
+
+        // Workflow retries MaximumAttempts = 5 times
+        await client
+            .Received(5)
+            .SendAsync(
+                Arg.Any<Uri>(),
+                Arg.Any<JsonElement>(),
+                Arg.Any<Dictionary<string, string>?>(),
+                Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Fact]
+    public async Task SendNotificationAsync_NetworkError_IsRetryable()
+    {
+        await using var env = await WorkflowEnvironment.StartTimeSkippingAsync();
+
+        var client = Substitute.For<INotificationClient>();
+        client
+            .SendAsync(default!, default, default, default)
+            .ReturnsForAnyArgs(_ => throw new HttpRequestException("connection refused"));
+
+        using var worker = CreateWorker(env, client);
+
+        await worker.ExecuteAsync(async () =>
+        {
+            var ex = await Assert.ThrowsAsync<WorkflowFailedException>(() =>
+                env.Client.ExecuteWorkflowAsync(
+                    (NotificationWorkflow wf) => wf.RunAsync(CreateCommand()),
+                    new(id: $"wf-{Guid.NewGuid()}", taskQueue: worker.Options.TaskQueue!)
+                )
+            );
+
+            var appFailure = ex
+                .InnerException.Should()
+                .BeOfType<ActivityFailureException>()
+                .Which.InnerException.Should()
+                .BeOfType<ApplicationFailureException>()
+                .Which;
+
+            appFailure.Message.Should().Contain("network error");
+            appFailure.NonRetryable.Should().BeFalse();
+        });
+
+        // Workflow retries MaximumAttempts = 5 times
+        await client
+            .Received(5)
+            .SendAsync(
+                Arg.Any<Uri>(),
+                Arg.Any<JsonElement>(),
+                Arg.Any<Dictionary<string, string>?>(),
+                Arg.Any<CancellationToken>()
+            );
     }
 }
