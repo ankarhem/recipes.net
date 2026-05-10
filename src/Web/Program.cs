@@ -1,8 +1,13 @@
 using App.Notifications;
 using Infrastructure.Notifications;
+using OpenTelemetry.Exporter;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using Scalar.AspNetCore;
 using Temporalio.Client;
 using Temporalio.Extensions.Hosting;
+using Temporalio.Extensions.OpenTelemetry;
 using Web.Serialization;
 using Web.Settings;
 
@@ -21,7 +26,91 @@ builder.Services.AddHttpClient<INotificationClient, NotificationClient>();
 var appSettings = new AppSettings();
 builder.Configuration.Bind(appSettings);
 
-builder.Services.AddTemporalClient(appSettings.Temporal.Target, appSettings.Temporal.Namespace);
+var otlpEndpoint = builder.Configuration["Otlp:Endpoint"];
+var consoleExporterEnabled = builder.Configuration.GetValue("Otel:ConsoleExporterEnabled", false);
+
+builder
+    .Services.AddOpenTelemetry()
+    .ConfigureResource(resource =>
+        resource
+            .AddService(
+                serviceName: builder.Configuration["ServiceName"] ?? "checkout-workflows",
+                serviceVersion: typeof(Program).Assembly.GetName().Version?.ToString() ?? "unknown"
+            )
+            .AddAttributes(
+                new Dictionary<string, object>
+                {
+                    ["deployment.environment"] = builder.Environment.EnvironmentName,
+                }
+            )
+    )
+    .WithTracing(tracing =>
+    {
+        tracing
+            .AddSource(TracingInterceptor.ClientSource.Name)
+            .AddSource(TracingInterceptor.WorkflowsSource.Name)
+            .AddSource(TracingInterceptor.ActivitiesSource.Name)
+            .AddAspNetCoreInstrumentation(options =>
+            {
+                options.Filter = context =>
+                    !context.Request.Path.StartsWithSegments("/healthcheck");
+                options.RecordException = true;
+            })
+            .AddHttpClientInstrumentation(options =>
+            {
+                options.RecordException = true;
+            });
+
+        if (consoleExporterEnabled)
+        {
+            tracing.AddConsoleExporter();
+        }
+
+        if (otlpEndpoint is not null)
+        {
+            tracing.AddOtlpExporter(options =>
+            {
+                options.Endpoint = new Uri(otlpEndpoint);
+                options.Protocol = OtlpExportProtocol.Grpc;
+            });
+        }
+    })
+    .WithMetrics(metrics =>
+    {
+        metrics
+            .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation()
+            .AddRuntimeInstrumentation();
+
+        if (consoleExporterEnabled)
+        {
+            metrics.AddConsoleExporter(
+                (_, readerOptions) =>
+                {
+                    readerOptions.PeriodicExportingMetricReaderOptions.ExportIntervalMilliseconds =
+                        10_000;
+                }
+            );
+        }
+
+        if (otlpEndpoint is not null)
+        {
+            metrics.AddOtlpExporter(
+                (exporterOptions, readerOptions) =>
+                {
+                    exporterOptions.Endpoint = new Uri(otlpEndpoint);
+                    readerOptions.TemporalityPreference = MetricReaderTemporalityPreference.Delta;
+                }
+            );
+        }
+    });
+
+builder.Services.AddTemporalClient(options =>
+{
+    options.TargetHost = appSettings.Temporal.Target;
+    options.Namespace = appSettings.Temporal.Namespace;
+    options.Interceptors = new[] { new TracingInterceptor() };
+});
 
 builder.Services.AddSingleton<INotificationService>(sp => new NotificationService(
     sp.GetRequiredService<ITemporalClient>(),
