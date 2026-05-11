@@ -48,7 +48,7 @@ public class NotificationWorkflowTests
         await worker.ExecuteAsync(async () =>
         {
             await env.Client.ExecuteWorkflowAsync(
-                (NotificationWorkflow wf) => wf.RunAsync(CreateCommand()),
+                (NotificationWorkflow wf) => wf.RunAsync(CreateCommand(null)),
                 new(id: $"wf-{Guid.NewGuid()}", taskQueue: worker.Options.TaskQueue!)
             );
         });
@@ -85,8 +85,7 @@ public class NotificationWorkflowTests
         await worker.ExecuteAsync(async () =>
         {
             var handle = await env.Client.StartWorkflowAsync(
-                (NotificationWorkflow wf) =>
-                    wf.RunAsync(CreateCommand(delay: TimeSpan.FromHours(1))),
+                (NotificationWorkflow wf) => wf.RunAsync(CreateCommand(TimeSpan.FromHours(1))),
                 new(id: $"wf-{Guid.NewGuid()}", taskQueue: worker.Options.TaskQueue!)
             );
 
@@ -141,7 +140,7 @@ public class NotificationWorkflowTests
         {
             var ex = await Assert.ThrowsAsync<WorkflowFailedException>(() =>
                 env.Client.ExecuteWorkflowAsync(
-                    (NotificationWorkflow wf) => wf.RunAsync(CreateCommand()),
+                    (NotificationWorkflow wf) => wf.RunAsync(CreateCommand(null)),
                     new(id: $"wf-{Guid.NewGuid()}", taskQueue: worker.Options.TaskQueue!)
                 )
             );
@@ -187,7 +186,7 @@ public class NotificationWorkflowTests
         await worker.ExecuteAsync(async () =>
         {
             await env.Client.ExecuteWorkflowAsync(
-                (NotificationWorkflow wf) => wf.RunAsync(CreateCommand()),
+                (NotificationWorkflow wf) => wf.RunAsync(CreateCommand(null)),
                 new(id: $"wf-{Guid.NewGuid()}", taskQueue: worker.Options.TaskQueue!)
             );
         });
@@ -220,7 +219,7 @@ public class NotificationWorkflowTests
         {
             await Assert.ThrowsAsync<WorkflowFailedException>(() =>
                 env.Client.ExecuteWorkflowAsync(
-                    (NotificationWorkflow wf) => wf.RunAsync(CreateCommand()),
+                    (NotificationWorkflow wf) => wf.RunAsync(CreateCommand(null)),
                     new(id: $"wf-{Guid.NewGuid()}", taskQueue: worker.Options.TaskQueue!)
                 )
             );
