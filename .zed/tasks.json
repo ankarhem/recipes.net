@@ -11,12 +11,12 @@
   },
   {
     "label": "Run Tests",
-    "command": "dotnet test checkout-workflows.slnx",
+    "command": "dotnet test recipes.slnx",
     "cwd": "$ZED_WORKTREE_ROOT",
   },
   {
     "label": "Build",
-    "command": "dotnet build checkout-workflows.slnx",
+    "command": "dotnet build recipes.slnx",
     "cwd": "$ZED_WORKTREE_ROOT",
   },
 ]
