@@ -21,7 +21,7 @@ public sealed class CrawlerActivities(ICrawlerClient client, ILogger<CrawlerActi
 
         try
         {
-            var result = await client.GetPage(command.TargetUrl, cancellationToken);
+            var result = await client.GetPageAsync(command.TargetUrl, cancellationToken);
 
             _logger.LogInformation(
                 "Crawl of {TargetUrl} completed successfully",

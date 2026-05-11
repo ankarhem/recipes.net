@@ -9,7 +9,10 @@ public sealed class CrawlerClient(HttpClient httpClient, ILogger<CrawlerClient> 
     private const int MaxErrorResponseBodyLength = 2048;
     private readonly ILogger<CrawlerClient> _logger = logger;
 
-    public async Task<string?> GetPage(Uri targetUrl, CancellationToken cancellationToken = default)
+    public async Task<string?> GetPageAsync(
+        Uri targetUrl,
+        CancellationToken cancellationToken = default
+    )
     {
         _logger.LogDebug("Sending HTTP GET to {TargetUrl}", targetUrl);
 
