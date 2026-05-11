@@ -1,5 +1,10 @@
 [
   {
+    "label": "Start Temporal",
+    "command": "temporal server start-dev",
+    "cwd": "$ZED_WORKTREE_ROOT"
+  },
+  {
     "label": "Run Web",
     "command": "dotnet watch --project src/Web/Web.csproj --launch-profile https",
     "cwd": "$ZED_WORKTREE_ROOT"
