@@ -30,8 +30,10 @@ public class CrawlerWorkflow
             return;
         }
 
+        var crawlCommand = new StartCrawlJobCommand { TargetUrl = url };
+
         var pageContent = await Workflow.ExecuteActivityAsync(
-            (CrawlerActivities a) => a.GetRecipePage(url),
+            (CrawlerActivities a) => a.CrawlAsync(crawlCommand),
             new()
             {
                 StartToCloseTimeout = TimeSpan.FromSeconds(10),
@@ -45,7 +47,7 @@ public class CrawlerWorkflow
             }
         );
 
-        // Extract links
+        // Extract same-site links
         // Extract Recipe
         // Save recipe
         // Enqueue non-visited links

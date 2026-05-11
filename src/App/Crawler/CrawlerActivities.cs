@@ -6,28 +6,27 @@ using Temporalio.Exceptions;
 
 namespace App.Crawler;
 
-public sealed class CrawlerActivities
+public sealed class CrawlerActivities(ICrawlerClient client, ILogger<CrawlerActivities> logger)
 {
-    private readonly ILogger<CrawlerActivities> _logger;
-    private readonly ICrawlerClient _client;
+    private readonly ILogger<CrawlerActivities> _logger = logger;
 
-    public CrawlerActivities(ICrawlerClient client, ILogger<CrawlerActivities> logger)
-    {
-        _client = client;
-        _logger = logger;
-    }
+    public CrawlerActivities(ICrawlerClient client)
+        : this(client, NullLogger<CrawlerActivities>.Instance) { }
 
     [Activity]
-    public async Task<string> GetRecipePage(Uri url)
+    public async Task<string?> CrawlAsync(StartCrawlJobCommand command)
     {
         var cancellationToken = ActivityExecutionContext.Current.CancellationToken;
-        _logger.LogInformation("Crawling {url}", url);
+        _logger.LogInformation("Crawling {TargetUrl}", command.TargetUrl);
 
         try
         {
-            var result = await _client.CrawlAsync(url, cancellationToken);
+            var result = await client.GetPage(command.TargetUrl, cancellationToken);
 
-            _logger.LogInformation("Crawl of {url} completed successfully", url);
+            _logger.LogInformation(
+                "Crawl of {TargetUrl} completed successfully",
+                command.TargetUrl
+            );
             return result;
         }
         catch (HttpRequestException ex) when (ex.StatusCode is HttpStatusCode statusCode)
@@ -35,8 +34,8 @@ public sealed class CrawlerActivities
             var nonRetryable = (int)statusCode is >= 400 and < 500 and not (408 or 429);
             _logger.LogWarning(
                 ex,
-                "Crawl of {url} failed with HTTP {StatusCode}",
-                url,
+                "Crawl of {TargetUrl} failed with HTTP {StatusCode}",
+                command.TargetUrl,
                 (int)statusCode
             );
 
@@ -49,7 +48,7 @@ public sealed class CrawlerActivities
         }
         catch (HttpRequestException ex)
         {
-            _logger.LogWarning(ex, "Crawl of {url} failed: network error", url);
+            _logger.LogWarning(ex, "Crawl of {TargetUrl} failed: network error", command.TargetUrl);
 
             throw new ApplicationFailureException(
                 $"Crawl failed: network error: {ex.Message}",
