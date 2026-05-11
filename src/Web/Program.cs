@@ -135,7 +135,6 @@ if (app.Environment.IsDevelopment())
     );
 }
 
-app.UseHttpsRedirection();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 app.MapHealthChecks("/health/ready");

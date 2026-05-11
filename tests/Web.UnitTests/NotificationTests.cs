@@ -2,6 +2,7 @@ using System.Text.Json;
 using App.Notifications;
 using AwesomeAssertions;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Web.Controllers;
 using Web.Models;
@@ -14,7 +15,10 @@ public class NotificationTests
     private static (NotificationsController controller, INotificationService mock) CreateSut()
     {
         var mock = Substitute.For<INotificationService>();
-        return (new NotificationsController(mock), mock);
+        return (
+            new NotificationsController(mock, NullLogger<NotificationsController>.Instance),
+            mock
+        );
     }
 
     private static JsonElement JsonBody(string json) =>

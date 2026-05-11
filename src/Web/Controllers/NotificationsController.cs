@@ -13,9 +13,6 @@ public class NotificationsController(
     ILogger<NotificationsController> logger
 ) : ControllerBase
 {
-    public NotificationsController(INotificationService notificationService)
-        : this(notificationService, NullLogger<NotificationsController>.Instance) { }
-
     [HttpPost]
     public async Task<IActionResult> Post(
         [FromBody] NotificationEnvelopeRequest envelope,
