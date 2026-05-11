@@ -1,3 +1,5 @@
+using Schema.NET;
+
 namespace App.Crawler;
 
 public interface IScraperService
@@ -8,5 +10,5 @@ public interface IScraperService
         CancellationToken cancellationToken = default
     );
 
-    string? ExtractRecipeJsonLd(string html);
+    Recipe? ExtractRecipe(string html);
 }

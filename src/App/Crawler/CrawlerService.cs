@@ -5,19 +5,12 @@ using Temporalio.Exceptions;
 
 namespace App.Crawler;
 
-public sealed class CrawlerService
+public sealed class CrawlerService(
+    ILogger<CrawlerService> logger,
+    ITemporalClient client,
+    string taskQueue
+)
 {
-    private readonly ILogger<CrawlerService> _logger;
-    private readonly ITemporalClient _client;
-    private readonly string _taskQueue;
-
-    public CrawlerService(ILogger<CrawlerService> logger, ITemporalClient client, string taskQueue)
-    {
-        _logger = logger;
-        _client = client;
-        _taskQueue = taskQueue;
-    }
-
     public async Task<string> StartAsync(
         StartCrawlJobCommand command,
         CancellationToken cancellationToken = default
@@ -27,9 +20,9 @@ public sealed class CrawlerService
 
         try
         {
-            var handle = await _client.StartWorkflowAsync(
+            var handle = await client.StartWorkflowAsync(
                 (CrawlerWorkflow wf) => wf.RunAsync(command),
-                new(id: host, _taskQueue)
+                new(id: host, taskQueue)
                 {
                     IdReusePolicy = WorkflowIdReusePolicy.RejectDuplicate,
                     IdConflictPolicy = WorkflowIdConflictPolicy.UseExisting,
@@ -41,11 +34,7 @@ public sealed class CrawlerService
         }
         catch (WorkflowAlreadyStartedException ex)
         {
-            _logger.LogInformation(
-                ex,
-                "Crawler for {TargetUrl} already started",
-                command.TargetUrl
-            );
+            logger.LogInformation(ex, "Crawler for {TargetUrl} already started", command.TargetUrl);
 
             throw;
         }

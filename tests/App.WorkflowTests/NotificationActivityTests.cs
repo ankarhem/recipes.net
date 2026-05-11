@@ -2,6 +2,7 @@ using System.Net;
 using System.Text.Json;
 using App.Notifications;
 using AwesomeAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Temporalio.Client;
 using Temporalio.Exceptions;
@@ -30,7 +31,9 @@ public class NotificationActivityTests
             env.Client,
             new TemporalWorkerOptions($"tq-{Guid.NewGuid()}")
                 .AddWorkflow<NotificationWorkflow>()
-                .AddAllActivities<NotificationActivities>(new NotificationActivities(client))
+                .AddAllActivities<NotificationActivities>(
+                    new NotificationActivities(client, NullLogger<NotificationActivities>.Instance)
+                )
         );
 
     [Fact]

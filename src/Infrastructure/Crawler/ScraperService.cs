@@ -1,7 +1,9 @@
+using System.Text.Json;
 using AngleSharp;
 using AngleSharp.Html.Dom;
 using App.Crawler;
 using Microsoft.Extensions.Logging;
+using Schema.NET;
 
 namespace Infrastructure.Crawler;
 
@@ -41,7 +43,7 @@ public sealed class ScraperService(ILogger<ScraperService> logger) : IScraperSer
         return links;
     }
 
-    public string? ExtractRecipeJsonLd(string html)
+    public Recipe? ExtractRecipe(string html)
     {
         var config = Configuration.Default;
         using var context = BrowsingContext.New(config);
@@ -51,10 +53,11 @@ public sealed class ScraperService(ILogger<ScraperService> logger) : IScraperSer
         foreach (var script in scriptNodes)
         {
             var jsonLd = script.TextContent;
-            if (ContainsRecipeType(jsonLd))
+            var recipe = TryDeserializeRecipe(jsonLd);
+            if (recipe is not null)
             {
-                logger.LogDebug("Found Schema.org Recipe JSON-LD in HTML");
-                return jsonLd;
+                logger.LogDebug("Extracted recipe from {Url}", document.Url);
+                return recipe;
             }
         }
 
@@ -62,33 +65,47 @@ public sealed class ScraperService(ILogger<ScraperService> logger) : IScraperSer
         return null;
     }
 
-    private static bool ContainsRecipeType(string jsonLd)
+    private static Recipe? TryDeserializeRecipe(string jsonLd)
     {
         try
         {
-            using var doc = System.Text.Json.JsonDocument.Parse(jsonLd);
+            using var doc = JsonDocument.Parse(jsonLd);
             var root = doc.RootElement;
 
-            if (root.ValueKind == System.Text.Json.JsonValueKind.Array)
-                return root.EnumerateArray().Any(HasRecipeType);
+            if (root.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var element in root.EnumerateArray())
+                {
+                    var recipe = TryDeserializeSingle(element);
+                    if (recipe is not null)
+                        return recipe;
+                }
 
-            return HasRecipeType(root);
+                return null;
+            }
+
+            return TryDeserializeSingle(root);
         }
         catch
         {
-            return false;
+            return null;
         }
     }
 
-    private static bool HasRecipeType(System.Text.Json.JsonElement element)
+    private static Recipe? TryDeserializeSingle(JsonElement element)
     {
-        if (!element.TryGetProperty("@type", out var typeElement))
-            return false;
+        if (!element.TryGetProperty("@type", out var typeElement) || !HasRecipeType(typeElement))
+            return null;
 
-        if (typeElement.ValueKind == System.Text.Json.JsonValueKind.String)
+        return SchemaSerializer.DeserializeObject<Recipe>(element.GetRawText());
+    }
+
+    private static bool HasRecipeType(JsonElement typeElement)
+    {
+        if (typeElement.ValueKind == JsonValueKind.String)
             return typeElement.GetString() == "Recipe";
 
-        if (typeElement.ValueKind == System.Text.Json.JsonValueKind.Array)
+        if (typeElement.ValueKind == JsonValueKind.Array)
             return typeElement.EnumerateArray().Any(t => t.GetString() == "Recipe");
 
         return false;

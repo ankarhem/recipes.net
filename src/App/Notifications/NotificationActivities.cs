@@ -2,7 +2,6 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Temporalio.Activities;
 using Temporalio.Exceptions;
 
@@ -13,16 +12,11 @@ public sealed class NotificationActivities(
     ILogger<NotificationActivities> logger
 )
 {
-    private readonly ILogger<NotificationActivities> _logger = logger;
-
-    public NotificationActivities(INotificationClient client)
-        : this(client, NullLogger<NotificationActivities>.Instance) { }
-
     [Activity]
     public async Task SendNotificationAsync(SendNotificationCommand command)
     {
         var cancellationToken = ActivityExecutionContext.Current.CancellationToken;
-        _logger.LogInformation("Sending notification to {TargetUrl}", command.TargetUrl);
+        logger.LogInformation("Sending notification to {TargetUrl}", command.TargetUrl);
 
         try
         {
@@ -36,7 +30,7 @@ public sealed class NotificationActivities(
         catch (HttpRequestException ex) when (ex.StatusCode is HttpStatusCode statusCode)
         {
             var nonRetryable = (int)statusCode is >= 400 and < 500 and not (408 or 429);
-            _logger.LogWarning(
+            logger.LogWarning(
                 ex,
                 "Notification to {TargetUrl} failed with HTTP {StatusCode}",
                 command.TargetUrl,
@@ -52,7 +46,7 @@ public sealed class NotificationActivities(
         }
         catch (HttpRequestException ex)
         {
-            _logger.LogWarning(
+            logger.LogWarning(
                 ex,
                 "Notification to {TargetUrl} failed: network error",
                 command.TargetUrl
@@ -66,6 +60,6 @@ public sealed class NotificationActivities(
             );
         }
 
-        _logger.LogInformation("Notification sent successfully to {TargetUrl}", command.TargetUrl);
+        logger.LogInformation("Notification sent successfully to {TargetUrl}", command.TargetUrl);
     }
 }

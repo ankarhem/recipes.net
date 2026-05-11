@@ -1,3 +1,4 @@
+using Schema.NET;
 using Temporalio.Workflows;
 
 namespace App.Crawler;
@@ -7,9 +8,10 @@ public class CrawlerWorkflow
 {
     private readonly HashSet<Uri> _visitedUrls = new();
     private readonly Queue<Uri> _urlQueue = new();
+    private readonly List<Recipe> _foundRecipes = new();
 
     [WorkflowRun]
-    public async Task RunAsync(StartCrawlJobCommand command)
+    public async Task<IReadOnlyList<Recipe>> RunAsync(StartCrawlJobCommand command)
     {
         _urlQueue.Enqueue(command.TargetUrl);
 
@@ -20,7 +22,7 @@ public class CrawlerWorkflow
             await HandlePageAsync(url);
         }
 
-        return;
+        return _foundRecipes;
     }
 
     private async Task HandlePageAsync(Uri url)
@@ -29,6 +31,8 @@ public class CrawlerWorkflow
         {
             return;
         }
+
+        _visitedUrls.Add(url);
 
         var crawlCommand = new StartCrawlJobCommand { TargetUrl = url };
 
@@ -47,11 +51,34 @@ public class CrawlerWorkflow
             }
         );
 
-        // Extract same-site links
-        // Extract Recipe
-        // Save recipe
-        // Enqueue non-visited links
+        if (pageContent is null)
+            return;
 
-        _visitedUrls.Add(url);
+        var links = await Workflow.ExecuteLocalActivityAsync(
+            (CrawlerActivities a) => a.ExtractLinksAsync(pageContent, url),
+            new() { StartToCloseTimeout = TimeSpan.FromSeconds(5) }
+        );
+
+        var recipeJson = await Workflow.ExecuteLocalActivityAsync(
+            (CrawlerActivities a) => a.ExtractRecipeJsonLd(pageContent),
+            new() { StartToCloseTimeout = TimeSpan.FromSeconds(5) }
+        );
+
+        if (recipeJson is not null)
+        {
+            var recipe = SchemaSerializer.DeserializeObject<Recipe>(recipeJson);
+            if (recipe is not null)
+                _foundRecipes.Add(recipe);
+        }
+
+        // Save recipe
+
+        foreach (var link in links)
+        {
+            if (!_visitedUrls.Contains(link))
+            {
+                _urlQueue.Enqueue(link);
+            }
+        }
     }
 }
