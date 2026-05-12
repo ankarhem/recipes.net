@@ -7,3 +7,6 @@ Always run `just validate` before committing.
 
 ## NSubstitute with Task<T> returns
 `Substitute.For<ISomeInterface>()` where methods return `Task<T>` causes ambiguous `Returns` / `ReturnsForAnyArgs` calls. Use `default!` for args and explicit `Func<CallInfo, T>` cast for lambda overloads.
+
+## Temporal workflow testing
+For workflow tests that include `Workflow.DelayAsync`, keep workflow code untouched and use `WorkflowEnvironment.StartTimeSkippingAsync(...)` in tests to avoid real-time waiting.
