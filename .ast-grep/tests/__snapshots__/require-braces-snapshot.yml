@@ -1,6 +1,28 @@
 id: require-braces
 snapshots:
   ? |
+    for (var i = 0; i < n; i++)
+      Console.WriteLine(i);
+  : labels:
+    - source: |-
+        for (var i = 0; i < n; i++)
+          Console.WriteLine(i);
+      style: primary
+      start: 0
+      end: 51
+  for (var i = 0; i < n; i++) DoSomething();:
+    labels:
+    - source: for (var i = 0; i < n; i++) DoSomething();
+      style: primary
+      start: 0
+      end: 42
+  foreach (var x in items) Process(x);:
+    labels:
+    - source: foreach (var x in items) Process(x);
+      style: primary
+      start: 0
+      end: 36
+  ? |
     if (a) {
       if (b) DoSomething();
     }
@@ -69,3 +91,15 @@ snapshots:
       style: primary
       start: 0
       end: 41
+  while (condition) DoWork();:
+    labels:
+    - source: while (condition) DoWork();
+      style: primary
+      start: 0
+      end: 27
+  while (true) DoWork();:
+    labels:
+    - source: while (true) DoWork();
+      style: primary
+      start: 0
+      end: 22

@@ -1,0 +1,26 @@
+id: no-sync-over-async
+snapshots:
+  someTask.Wait();:
+    labels:
+    - source: someTask.Wait()
+      style: primary
+      start: 0
+      end: 15
+  task.Wait();:
+    labels:
+    - source: task.Wait()
+      style: primary
+      start: 0
+      end: 11
+  var data = httpClient.GetAsync(url).Result;:
+    labels:
+    - source: httpClient.GetAsync(url).Result
+      style: primary
+      start: 11
+      end: 42
+  var result = task.Result;:
+    labels:
+    - source: task.Result
+      style: primary
+      start: 13
+      end: 24

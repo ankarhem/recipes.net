@@ -1,0 +1,35 @@
+id: no-empty-catch
+snapshots:
+  ? |
+    try { DoSomething(); } catch (Exception ex) { }
+  : labels:
+    - source: catch (Exception ex) { }
+      style: primary
+      start: 23
+      end: 47
+    - source: '{ }'
+      style: secondary
+      start: 44
+      end: 47
+  ? |
+    try { DoSomething(); } catch (Exception) { }
+  : labels:
+    - source: catch (Exception) { }
+      style: primary
+      start: 23
+      end: 44
+    - source: '{ }'
+      style: secondary
+      start: 41
+      end: 44
+  ? |
+    try { DoSomething(); } catch { }
+  : labels:
+    - source: catch { }
+      style: primary
+      start: 23
+      end: 32
+    - source: '{ }'
+      style: secondary
+      start: 29
+      end: 32

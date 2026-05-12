@@ -18,5 +18,20 @@ rule:
                   kind: if_statement
                   field: alternative
         - regex: "else"
-message: if statements must always use braces
+    - kind: for_statement
+      not:
+        has:
+          kind: block
+          field: body
+    - kind: foreach_statement
+      not:
+        has:
+          kind: block
+          field: body
+    - kind: while_statement
+      not:
+        has:
+          kind: block
+          field: body
+message: control flow statements must always use braces
 severity: error

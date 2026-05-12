@@ -1,24 +1,19 @@
 id: require-braces
 valid:
-  # if with braces on consequence
   - if (x) { DoSomething(); }
-  # if-else both with braces
   - |
     if (x) {
       DoSomething();
     } else {
       DoOther();
     }
-  # if with braces and empty body
   - if (condition) { }
-  # nested if with braces
   - |
     if (a) {
       if (b) {
         DoSomething();
       }
     }
-  # if-else if-else chain with braces
   - |
     if (x == 1) {
       Foo();
@@ -27,38 +22,49 @@ valid:
     } else {
       Baz();
     }
-  # if with block containing return
   - |
     if (guard) {
       return;
     }
-  # single statement in braces
   - if (x > 0) { return true; }
+  - for (var i = 0; i < n; i++) { DoSomething(); }
+  - foreach (var x in items) { Process(x); }
+  - while (condition) { DoWork(); }
+  - |
+    for (var i = 0; i < n; i++) {
+      DoSomething();
+    }
+  - |
+    foreach (var item in collection) {
+      Process(item);
+    }
+  - |
+    while (true) {
+      DoWork();
+    }
 invalid:
-  # if without braces on consequence — single statement
   - if (x) DoSomething();
-  # if without braces — return statement
   - if (guard) return;
-  # if without braces — method call
   - if (condition) Foo();
-  # if-else: consequence missing braces
   - |
     if (x) DoSomething();
     else { DoOther(); }
-  # if-else: alternative missing braces
   - |
     if (x) { DoSomething(); }
     else DoOther();
-  # both missing braces
   - |
     if (x) DoSomething();
     else DoOther();
-  # nested: outer has braces, inner missing
   - |
     if (a) {
       if (b) DoSomething();
     }
-  # throw without braces
   - if (broken) throw new Exception();
-  # assignment without braces
   - if (flag) x = 42;
+  - for (var i = 0; i < n; i++) DoSomething();
+  - foreach (var x in items) Process(x);
+  - while (condition) DoWork();
+  - |
+    for (var i = 0; i < n; i++)
+      Console.WriteLine(i);
+  - while (true) DoWork();

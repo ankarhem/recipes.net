@@ -1,0 +1,10 @@
+id: no-empty-catch
+language: CSharp
+rule:
+  kind: catch_clause
+  has:
+    field: body
+    kind: block
+    regex: '^\{\s*\}$'
+message: catch blocks must not be empty
+severity: warning

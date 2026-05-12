@@ -1,0 +1,8 @@
+id: no-sync-over-async
+language: CSharp
+rule:
+  any:
+    - pattern: $TASK.Result
+    - pattern: $TASK.Wait()
+message: avoid sync over async — use await instead of .Result or .Wait()
+severity: warning

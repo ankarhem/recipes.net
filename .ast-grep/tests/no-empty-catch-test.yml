@@ -1,0 +1,20 @@
+id: no-empty-catch
+valid:
+  - |
+    try { DoSomething(); } catch (Exception ex) { Log(ex); }
+  - |
+    try {
+      DoSomething();
+    } catch (Exception ex) {
+      _logger.LogError(ex, "failed");
+      throw;
+    }
+  - |
+    try { DoSomething(); } catch { throw; }
+invalid:
+  - |
+    try { DoSomething(); } catch { }
+  - |
+    try { DoSomething(); } catch (Exception) { }
+  - |
+    try { DoSomething(); } catch (Exception ex) { }

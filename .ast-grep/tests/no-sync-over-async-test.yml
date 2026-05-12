@@ -1,0 +1,11 @@
+id: no-sync-over-async
+valid:
+  - var result = await task;
+  - await DoSomethingAsync();
+  - var name = person.Name;
+  - task.ConfigureAwait(false);
+invalid:
+  - var result = task.Result;
+  - task.Wait();
+  - var data = httpClient.GetAsync(url).Result;
+  - someTask.Wait();

@@ -1,0 +1,8 @@
+id: no-rethrow-variable
+language: CSharp
+rule:
+  kind: throw_statement
+  has:
+    kind: identifier
+message: use 'throw;' instead of 'throw ex;' to preserve stack trace
+severity: error

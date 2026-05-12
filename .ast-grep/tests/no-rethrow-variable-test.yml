@@ -1,0 +1,9 @@
+id: no-rethrow-variable
+valid:
+  - throw;
+  - throw new Exception("message");
+  - throw new InvalidOperationException();
+invalid:
+  - throw ex;
+  - throw e;
+  - throw err;
