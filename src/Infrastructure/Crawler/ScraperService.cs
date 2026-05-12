@@ -51,7 +51,7 @@ public sealed class ScraperService(ILogger<ScraperService> logger) : IScraperSer
     {
         return document
             .Links.OfType<IHtmlAnchorElement>()
-            .Where(a => !string.IsNullOrWhiteSpace(a.Href))
+            .Where(a => !string.IsNullOrWhiteSpace(a.GetAttribute("href")))
             .Select(a =>
             {
                 Uri.TryCreate(a.Href, UriKind.Absolute, out var uri);

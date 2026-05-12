@@ -284,4 +284,21 @@ public class ScraperServiceTests
         result.Recipe.Should().BeNull();
         result.RawJsonLd.Should().BeNull();
     }
+
+    [Fact]
+    public async Task ExtractPageAsync_BlankOrWhitespaceHrefs_AreIgnored()
+    {
+        var service = CreateService();
+        var html = """
+            <html><body>
+            <a href="">Empty</a>
+            <a href="   ">Whitespace</a>
+            <a href="	">Tab</a>
+            <a>No href attribute</a>
+            </body></html>
+            """;
+
+        var result = await service.ExtractPageAsync(html, BaseUrl);
+        result.Links.Should().BeEmpty();
+    }
 }
