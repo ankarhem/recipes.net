@@ -2,7 +2,7 @@ namespace App.Crawler;
 
 public interface ICrawlerService
 {
-    Task<string> StartAsync(
+    Task<WorkflowId> StartAsync(
         StartCrawlJobCommand command,
         CancellationToken cancellationToken = default
     );

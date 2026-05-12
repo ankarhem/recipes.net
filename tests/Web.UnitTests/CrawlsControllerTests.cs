@@ -11,11 +11,18 @@ namespace Web.Tests;
 public class CrawlsControllerTests
 {
     private readonly ICrawlerService _service = Substitute.For<ICrawlerService>();
+    private static readonly WorkflowId TestWorkflowId = new("example.com-VaK5fP3m9g");
 
     [Fact]
     public async Task Post_ValidRequest_Returns202WithWorkflowId()
     {
-        _service.StartAsync(default!, default).ReturnsForAnyArgs("example.com");
+        _service
+            .StartAsync(default!, default)
+            .ReturnsForAnyArgs(
+                (Func<NSubstitute.Core.CallInfo, Task<WorkflowId>>)(
+                    _ => Task.FromResult(TestWorkflowId)
+                )
+            );
         var controller = new CrawlsController(_service);
         var request = new StartCrawlRequest { TargetUrl = new Uri("https://example.com") };
 
@@ -23,13 +30,19 @@ public class CrawlsControllerTests
 
         var accepted = result.Should().BeOfType<AcceptedResult>().Subject;
         accepted.StatusCode.Should().Be(202);
-        accepted.Value.Should().BeEquivalentTo(new { workflowId = "example.com" });
+        accepted.Value.Should().BeEquivalentTo(new { workflowId = TestWorkflowId.Value });
     }
 
     [Fact]
     public async Task Post_ValidRequest_PassesTargetUrlToService()
     {
-        _service.StartAsync(default!, default).ReturnsForAnyArgs("example.com");
+        _service
+            .StartAsync(default!, default)
+            .ReturnsForAnyArgs(
+                (Func<NSubstitute.Core.CallInfo, Task<WorkflowId>>)(
+                    _ => Task.FromResult(TestWorkflowId)
+                )
+            );
         var controller = new CrawlsController(_service);
         var targetUrl = new Uri("https://example.com/recipes");
         var request = new StartCrawlRequest { TargetUrl = targetUrl };
@@ -47,7 +60,13 @@ public class CrawlsControllerTests
     [Fact]
     public async Task Post_ValidRequest_ForwardsCancellationToken()
     {
-        _service.StartAsync(default!, default).ReturnsForAnyArgs("example.com");
+        _service
+            .StartAsync(default!, default)
+            .ReturnsForAnyArgs(
+                (Func<NSubstitute.Core.CallInfo, Task<WorkflowId>>)(
+                    _ => Task.FromResult(TestWorkflowId)
+                )
+            );
         var controller = new CrawlsController(_service);
         var request = new StartCrawlRequest { TargetUrl = new Uri("https://example.com") };
         using var cts = new CancellationTokenSource();
@@ -75,7 +94,13 @@ public class CrawlsControllerTests
     [Fact]
     public async Task Post_HttpsScheme_IsAccepted()
     {
-        _service.StartAsync(default!, default).ReturnsForAnyArgs("example.com");
+        _service
+            .StartAsync(default!, default)
+            .ReturnsForAnyArgs(
+                (Func<NSubstitute.Core.CallInfo, Task<WorkflowId>>)(
+                    _ => Task.FromResult(TestWorkflowId)
+                )
+            );
         var controller = new CrawlsController(_service);
         var request = new StartCrawlRequest { TargetUrl = new Uri("https://example.com") };
 
@@ -87,7 +112,13 @@ public class CrawlsControllerTests
     [Fact]
     public async Task Post_HttpScheme_IsAccepted()
     {
-        _service.StartAsync(default!, default).ReturnsForAnyArgs("example.com");
+        _service
+            .StartAsync(default!, default)
+            .ReturnsForAnyArgs(
+                (Func<NSubstitute.Core.CallInfo, Task<WorkflowId>>)(
+                    _ => Task.FromResult(TestWorkflowId)
+                )
+            );
         var controller = new CrawlsController(_service);
         var request = new StartCrawlRequest { TargetUrl = new Uri("http://example.com") };
 

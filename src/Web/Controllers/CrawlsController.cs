@@ -26,7 +26,7 @@ public class CrawlsController(ICrawlerService crawlerService) : ControllerBase
             cancellationToken
         );
 
-        return Accepted(new { workflowId });
+        return Accepted(new { workflowId = workflowId.Value });
     }
 
     private static bool IsHttpScheme(Uri uri) =>
