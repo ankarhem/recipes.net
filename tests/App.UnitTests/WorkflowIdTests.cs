@@ -36,7 +36,7 @@ public class WorkflowIdTests
     [InlineData(null)]
     [InlineData("")]
     [InlineData("   ")]
-    public void Constructor_ThrowsOnEmptyOrNull(string value)
+    public void Constructor_ThrowsOnEmptyOrNull(string? value)
     {
         var act = () => new WorkflowId(value!);
 
