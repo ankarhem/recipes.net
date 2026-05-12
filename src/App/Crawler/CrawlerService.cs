@@ -9,7 +9,7 @@ public sealed class CrawlerService(
     ILogger<CrawlerService> logger,
     ITemporalClient client,
     string taskQueue
-)
+) : ICrawlerService
 {
     public async Task<string> StartAsync(
         StartCrawlJobCommand command,

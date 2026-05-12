@@ -1,8 +1,13 @@
-using Domain;
+using Domain.Recipe;
 
 namespace App.Crawler;
 
 public interface IRecipeRepository
 {
-    Task SaveAsync(RecipeEntity recipe, CancellationToken cancellationToken = default);
+    Task SaveImportedAsync(
+        Recipe recipe,
+        string sourceUrl,
+        string rawSchemaJson,
+        CancellationToken cancellationToken = default
+    );
 }

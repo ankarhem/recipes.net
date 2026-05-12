@@ -43,7 +43,7 @@ public sealed class ScraperService(ILogger<ScraperService> logger) : IScraperSer
         return links;
     }
 
-    public Recipe? ExtractRecipe(string html)
+    public ExtractedRecipe? ExtractRecipe(string html)
     {
         var config = Configuration.Default;
         using var context = BrowsingContext.New(config);
@@ -53,11 +53,11 @@ public sealed class ScraperService(ILogger<ScraperService> logger) : IScraperSer
         foreach (var script in scriptNodes)
         {
             var jsonLd = script.TextContent;
-            var recipe = TryDeserializeRecipe(jsonLd);
-            if (recipe is not null)
+            var result = TryDeserializeRecipe(jsonLd);
+            if (result is not null)
             {
                 logger.LogDebug("Extracted recipe from {Url}", document.Url);
-                return recipe;
+                return result;
             }
         }
 
@@ -65,7 +65,7 @@ public sealed class ScraperService(ILogger<ScraperService> logger) : IScraperSer
         return null;
     }
 
-    private static Recipe? TryDeserializeRecipe(string jsonLd)
+    private static ExtractedRecipe? TryDeserializeRecipe(string jsonLd)
     {
         try
         {
@@ -76,9 +76,11 @@ public sealed class ScraperService(ILogger<ScraperService> logger) : IScraperSer
             {
                 foreach (var element in root.EnumerateArray())
                 {
-                    var recipe = TryDeserializeSingle(element);
-                    if (recipe is not null)
-                        return recipe;
+                    var result = TryDeserializeSingle(element);
+                    if (result is not null)
+                    {
+                        return result;
+                    }
                 }
 
                 return null;
@@ -92,21 +94,29 @@ public sealed class ScraperService(ILogger<ScraperService> logger) : IScraperSer
         }
     }
 
-    private static Recipe? TryDeserializeSingle(JsonElement element)
+    private static ExtractedRecipe? TryDeserializeSingle(JsonElement element)
     {
         if (!element.TryGetProperty("@type", out var typeElement) || !HasRecipeType(typeElement))
+        {
             return null;
+        }
 
-        return SchemaSerializer.DeserializeObject<Recipe>(element.GetRawText());
+        var rawJson = element.GetRawText();
+        var recipe = SchemaSerializer.DeserializeObject<Recipe>(rawJson);
+        return recipe is not null ? new ExtractedRecipe(recipe, rawJson) : null;
     }
 
     private static bool HasRecipeType(JsonElement typeElement)
     {
         if (typeElement.ValueKind == JsonValueKind.String)
+        {
             return typeElement.GetString() == "Recipe";
+        }
 
         if (typeElement.ValueKind == JsonValueKind.Array)
+        {
             return typeElement.EnumerateArray().Any(t => t.GetString() == "Recipe");
+        }
 
         return false;
     }

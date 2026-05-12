@@ -25,6 +25,8 @@ public class IntegrationTestFixture : WebApplicationFactory<Program>, IAsyncLife
     {
         await base.DisposeAsync();
         if (_environment != null)
+        {
             await _environment.DisposeAsync();
+        }
     }
 }

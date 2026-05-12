@@ -129,10 +129,20 @@ builder.Services.AddDbContext<RecipesDbContext>(options =>
 
 builder.Services.AddScoped<IRecipeRepository, RecipeRepository>();
 
+builder.Services.AddHttpClient<ICrawlerClient, CrawlerClient>();
+builder.Services.AddSingleton<IScraperService, ScraperService>();
+builder.Services.AddSingleton<ICrawlerService>(sp => new CrawlerService(
+    sp.GetRequiredService<ILogger<CrawlerService>>(),
+    sp.GetRequiredService<ITemporalClient>(),
+    appSettings.Temporal.TaskQueue
+));
+
 builder
     .Services.AddHostedTemporalWorker(appSettings.Temporal.TaskQueue)
     .AddTransientActivities<NotificationActivities>()
-    .AddWorkflow<NotificationWorkflow>();
+    .AddTransientActivities<CrawlerActivities>()
+    .AddWorkflow<NotificationWorkflow>()
+    .AddWorkflow<CrawlerWorkflow>();
 
 var app = builder.Build();
 

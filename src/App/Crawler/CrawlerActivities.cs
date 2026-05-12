@@ -1,6 +1,6 @@
 using System.Net;
+using Domain.Recipe;
 using Microsoft.Extensions.Logging;
-using Schema.NET;
 using Temporalio.Activities;
 using Temporalio.Exceptions;
 
@@ -9,20 +9,21 @@ namespace App.Crawler;
 public sealed class CrawlerActivities(
     ICrawlerClient client,
     IScraperService scraper,
+    IRecipeRepository repository,
     ILogger<CrawlerActivities> logger
 )
 {
     [Activity]
-    public async Task<string?> CrawlAsync(StartCrawlJobCommand command)
+    public async Task<string?> FetchPageAsync(Uri url)
     {
         var cancellationToken = ActivityExecutionContext.Current.CancellationToken;
-        logger.LogInformation("Crawling {TargetUrl}", command.TargetUrl);
+        logger.LogInformation("Fetching {Url}", url);
 
         try
         {
-            var result = await client.GetPageAsync(command.TargetUrl, cancellationToken);
+            var result = await client.GetPageAsync(url, cancellationToken);
 
-            logger.LogInformation("Crawl of {TargetUrl} completed successfully", command.TargetUrl);
+            logger.LogInformation("Fetched {Url} successfully", url);
             return result;
         }
         catch (HttpRequestException ex) when (ex.StatusCode is HttpStatusCode statusCode)
@@ -30,13 +31,13 @@ public sealed class CrawlerActivities(
             var nonRetryable = (int)statusCode is >= 400 and < 500 and not (408 or 429);
             logger.LogWarning(
                 ex,
-                "Crawl of {TargetUrl} failed with HTTP {StatusCode}",
-                command.TargetUrl,
+                "Fetch of {Url} failed with HTTP {StatusCode}",
+                url,
                 (int)statusCode
             );
 
             throw new ApplicationFailureException(
-                $"Crawl failed with HTTP {(int)statusCode}: {ex.Message}",
+                $"Fetch failed with HTTP {(int)statusCode}: {ex.Message}",
                 inner: ex,
                 errorType: null,
                 nonRetryable: nonRetryable
@@ -44,10 +45,10 @@ public sealed class CrawlerActivities(
         }
         catch (HttpRequestException ex)
         {
-            logger.LogWarning(ex, "Crawl of {TargetUrl} failed: network error", command.TargetUrl);
+            logger.LogWarning(ex, "Fetch of {Url} failed: network error", url);
 
             throw new ApplicationFailureException(
-                $"Crawl failed: network error: {ex.Message}",
+                $"Fetch failed: network error: {ex.Message}",
                 inner: ex,
                 errorType: null,
                 nonRetryable: false
@@ -63,8 +64,16 @@ public sealed class CrawlerActivities(
     }
 
     [Activity]
-    public Recipe? ExtractRecipe(string html)
+    public ExtractedRecipe? ExtractRecipe(string html)
     {
         return scraper.ExtractRecipe(html);
+    }
+
+    [Activity]
+    public async Task SaveRecipeAsync(Recipe recipe, string sourceUrl, string rawSchemaJson)
+    {
+        var ct = ActivityExecutionContext.Current.CancellationToken;
+        await repository.SaveImportedAsync(recipe, sourceUrl, rawSchemaJson, ct);
+        logger.LogInformation("Saved recipe {Name} from {Url}", recipe.Name, sourceUrl);
     }
 }

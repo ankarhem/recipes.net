@@ -1,4 +1,4 @@
-using Schema.NET;
+using Microsoft.Extensions.Logging;
 using Temporalio.Workflows;
 
 namespace App.Crawler;
@@ -8,10 +8,9 @@ public class CrawlerWorkflow
 {
     private readonly HashSet<Uri> _visitedUrls = new();
     private readonly Queue<Uri> _urlQueue = new();
-    private readonly List<Recipe> _foundRecipes = new();
 
     [WorkflowRun]
-    public async Task<IReadOnlyList<Recipe>> RunAsync(StartCrawlJobCommand command)
+    public async Task RunAsync(StartCrawlJobCommand command)
     {
         _urlQueue.Enqueue(command.TargetUrl);
 
@@ -21,8 +20,6 @@ public class CrawlerWorkflow
             await Workflow.DelayAsync(TimeSpan.FromMilliseconds(new Random().Next(300, 1000)));
             await HandlePageAsync(url);
         }
-
-        return _foundRecipes;
     }
 
     private async Task HandlePageAsync(Uri url)
@@ -34,10 +31,8 @@ public class CrawlerWorkflow
 
         _visitedUrls.Add(url);
 
-        var crawlCommand = new StartCrawlJobCommand { TargetUrl = url };
-
         var pageContent = await Workflow.ExecuteActivityAsync(
-            (CrawlerActivities a) => a.CrawlAsync(crawlCommand),
+            (CrawlerActivities a) => a.FetchPageAsync(url),
             new()
             {
                 StartToCloseTimeout = TimeSpan.FromSeconds(10),
@@ -52,24 +47,41 @@ public class CrawlerWorkflow
         );
 
         if (pageContent is null)
+        {
+            Workflow.Logger.LogWarning("Fetch returned null for {Url}", url);
             return;
+        }
 
         var links = await Workflow.ExecuteLocalActivityAsync(
             (CrawlerActivities a) => a.ExtractLinksAsync(pageContent, url),
             new() { StartToCloseTimeout = TimeSpan.FromSeconds(5) }
         );
 
-        var recipe = await Workflow.ExecuteLocalActivityAsync(
+        var extracted = await Workflow.ExecuteLocalActivityAsync(
             (CrawlerActivities a) => a.ExtractRecipe(pageContent),
             new() { StartToCloseTimeout = TimeSpan.FromSeconds(5) }
         );
 
-        if (recipe is not null)
+        if (extracted is not null)
         {
-            _foundRecipes.Add(recipe);
-        }
+            var recipe = RecipeFactory.FromSchema(extracted.SchemaRecipe);
 
-        // Save recipe
+            await Workflow.ExecuteActivityAsync(
+                (CrawlerActivities a) =>
+                    a.SaveRecipeAsync(recipe, url.ToString(), extracted.RawJsonLd),
+                new()
+                {
+                    StartToCloseTimeout = TimeSpan.FromSeconds(10),
+                    RetryPolicy = new()
+                    {
+                        InitialInterval = TimeSpan.FromSeconds(1),
+                        BackoffCoefficient = 2.0F,
+                        MaximumInterval = TimeSpan.FromSeconds(30),
+                        MaximumAttempts = 3,
+                    },
+                }
+            );
+        }
 
         foreach (var link in links)
         {

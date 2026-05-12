@@ -37,6 +37,20 @@
             programs.nixfmt.enable = true;
             programs.nixfmt.package = pkgs.nixfmt;
             programs.csharpier.enable = true;
+
+            settings.formatter.ast-grep = {
+              command = "${pkgs.bash}/bin/bash";
+              options = [
+                "-euc"
+                ''
+                  # ast-grep scan checks the whole project based on sgconfig.yml
+                  # treefmt passes individual files but we ignore them and scan all
+                  exec ${lib.getExe pkgs.ast-grep} scan --filter require-braces
+                ''
+                "--" # bash swallows the second argument when using -c
+              ];
+              includes = [ "*.cs" ];
+            };
           };
           pre-commit.settings.hooks = {
             treefmt.enable = true;
@@ -46,6 +60,7 @@
             packages =
               with pkgs;
               [
+                ast-grep
                 dotnet
                 dotnet-ef
                 just

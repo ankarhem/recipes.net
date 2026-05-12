@@ -10,5 +10,5 @@ public interface IScraperService
         CancellationToken cancellationToken = default
     );
 
-    Recipe? ExtractRecipe(string html);
+    ExtractedRecipe? ExtractRecipe(string html);
 }

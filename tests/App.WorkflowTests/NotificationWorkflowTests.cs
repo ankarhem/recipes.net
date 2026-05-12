@@ -172,7 +172,9 @@ public class NotificationWorkflowTests
         {
             Interlocked.Increment(ref attempt);
             if (attempt < 3)
+            {
                 throw new ApplicationFailureException("transient error", nonRetryable: false);
+            }
             return Task.CompletedTask;
         }
 

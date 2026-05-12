@@ -1,13 +1,19 @@
 using App.Crawler;
-using Domain;
+using Domain.Recipe;
 
 namespace Infrastructure.Crawler;
 
 public sealed class RecipeRepository(RecipesDbContext db) : IRecipeRepository
 {
-    public async Task SaveAsync(RecipeEntity recipe, CancellationToken cancellationToken = default)
+    public async Task SaveImportedAsync(
+        Recipe recipe,
+        string sourceUrl,
+        string rawSchemaJson,
+        CancellationToken cancellationToken = default
+    )
     {
-        await db.Recipes.AddAsync(recipe, cancellationToken);
+        var entity = RecipeEntity.FromImport(recipe, sourceUrl, rawSchemaJson);
+        await db.Recipes.AddAsync(entity, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
     }
 }

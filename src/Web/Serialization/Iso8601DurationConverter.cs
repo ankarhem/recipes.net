@@ -95,11 +95,19 @@ public sealed class Iso8601DurationConverter : JsonConverter<TimeSpan>
         {
             result.Append('T');
             if (hours > 0)
+            {
                 result.Append($"{hours}H");
+            }
+
             if (minutes > 0)
+            {
                 result.Append($"{minutes}M");
+            }
+
             if (seconds > 0)
+            {
                 result.Append($"{seconds}S");
+            }
         }
 
         return result.ToString();
