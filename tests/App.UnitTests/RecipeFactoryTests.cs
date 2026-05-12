@@ -33,14 +33,14 @@ public class RecipeFactoryTests
         result
             .Ingredients.Should()
             .Equal(
-                new DomainRecipeIngredient("4 tomatoes"),
-                new DomainRecipeIngredient("1 cup stock")
+                new DomainRecipeIngredient { Text = "4 tomatoes" },
+                new DomainRecipeIngredient { Text = "1 cup stock" }
             );
         result
             .Instructions.Should()
             .Equal(
-                new DomainRecipeInstruction(1, "Chop tomatoes"),
-                new DomainRecipeInstruction(2, "Simmer soup")
+                new DomainRecipeInstruction { Position = 1, Text = "Chop tomatoes" },
+                new DomainRecipeInstruction { Position = 2, Text = "Simmer soup" }
             );
     }
 
@@ -114,8 +114,8 @@ public class RecipeFactoryTests
         result
             .Instructions.Should()
             .Equal(
-                new DomainRecipeInstruction(1, "Mix batter"),
-                new DomainRecipeInstruction(2, "Bake cake")
+                new DomainRecipeInstruction { Position = 1, Text = "Mix batter" },
+                new DomainRecipeInstruction { Position = 2, Text = "Bake cake" }
             );
     }
 
@@ -132,9 +132,9 @@ public class RecipeFactoryTests
         result
             .Instructions.Should()
             .Equal(
-                new DomainRecipeInstruction(1, "Prep ingredients"),
-                new DomainRecipeInstruction(2, "Cook filling"),
-                new DomainRecipeInstruction(3, "Serve")
+                new DomainRecipeInstruction { Position = 1, Text = "Prep ingredients" },
+                new DomainRecipeInstruction { Position = 2, Text = "Cook filling" },
+                new DomainRecipeInstruction { Position = 3, Text = "Serve" }
             );
     }
 
@@ -168,8 +168,8 @@ public class RecipeFactoryTests
         result
             .Ingredients.Should()
             .Equal(
-                new DomainRecipeIngredient("1 tsp salt"),
-                new DomainRecipeIngredient("2 tbsp olive oil")
+                new DomainRecipeIngredient { Text = "1 tsp salt" },
+                new DomainRecipeIngredient { Text = "2 tbsp olive oil" }
             );
         result
             .Ingredients.Select(ingredient => ingredient.Text)

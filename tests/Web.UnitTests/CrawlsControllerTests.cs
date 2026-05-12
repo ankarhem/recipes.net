@@ -192,7 +192,13 @@ public class CrawlsControllerTests
     [Fact]
     public async Task GetStatus_ReturnsStatusFromService()
     {
-        var status = new CrawlStatus("running", 5, 3, false);
+        var status = new CrawlStatus
+        {
+            Status = "running",
+            UrlsCrawled = 5,
+            UrlsQueued = 3,
+            IsPaused = false,
+        };
         _service
             .GetStatusAsync(Arg.Any<WorkflowId>(), Arg.Any<CancellationToken>())
             .Returns(
@@ -218,7 +224,16 @@ public class CrawlsControllerTests
             .GetStatusAsync(Arg.Any<WorkflowId>(), Arg.Any<CancellationToken>())
             .Returns(
                 (Func<NSubstitute.Core.CallInfo, Task<CrawlStatus>>)(
-                    _ => Task.FromResult(new CrawlStatus("running", 0, 0, false))
+                    _ =>
+                        Task.FromResult(
+                            new CrawlStatus
+                            {
+                                Status = "running",
+                                UrlsCrawled = 0,
+                                UrlsQueued = 0,
+                                IsPaused = false,
+                            }
+                        )
                 )
             );
         var controller = new CrawlsController(_service);

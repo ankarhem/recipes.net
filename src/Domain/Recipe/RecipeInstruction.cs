@@ -1,3 +1,8 @@
 namespace Domain.Recipe;
 
-public sealed record RecipeInstruction(int Position, string Text, string? Name = null);
+public sealed record RecipeInstruction
+{
+    public required int Position { get; init; }
+    public required string Text { get; init; }
+    public string? Name { get; init; }
+}

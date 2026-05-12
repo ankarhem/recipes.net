@@ -40,7 +40,13 @@ public class CrawlerWorkflow
 
     [WorkflowQuery]
     public CrawlStatus GetStatus() =>
-        new("running", _visitedUrls.Count, _urlQueue.Count, _isPaused);
+        new()
+        {
+            Status = "running",
+            UrlsCrawled = _visitedUrls.Count,
+            UrlsQueued = _urlQueue.Count,
+            IsPaused = _isPaused,
+        };
 
     private async Task HandlePageAsync(Uri url)
     {

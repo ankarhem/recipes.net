@@ -74,7 +74,13 @@ public sealed class CrawlerService(
 
         if (description.Status == WorkflowExecutionStatus.Completed)
         {
-            return new CrawlStatus("completed", 0, 0, false);
+            return new CrawlStatus
+            {
+                Status = "completed",
+                UrlsCrawled = 0,
+                UrlsQueued = 0,
+                IsPaused = false,
+            };
         }
 
         return await handle.QueryAsync(wf => wf.GetStatus());

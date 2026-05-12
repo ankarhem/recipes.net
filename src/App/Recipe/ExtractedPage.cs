@@ -1,7 +1,8 @@
 namespace App.Recipe;
 
-public sealed record ExtractedPage(
-    IReadOnlyList<Uri> Links,
-    Domain.Recipe.Recipe? Recipe,
-    string? RawJsonLd
-);
+public sealed record ExtractedPage
+{
+    public required IReadOnlyList<Uri> Links { get; init; }
+    public Domain.Recipe.Recipe? Recipe { get; init; }
+    public string? RawJsonLd { get; init; }
+}

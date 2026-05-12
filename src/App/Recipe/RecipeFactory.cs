@@ -16,21 +16,24 @@ public static class RecipeFactory
             .ToList();
 
         var ingredients = schemaRecipe
-            .RecipeIngredient.Select(i => new DomainRecipeIngredient(i))
+            .RecipeIngredient.Select(i => new DomainRecipeIngredient { Text = i })
             .ToList();
 
         var instructions = schemaRecipe
             .RecipeInstructions.Where(i => i is string)
             .Cast<string>()
-            .Select((text, index) => new DomainRecipeInstruction(index + 1, text))
+            .Select(
+                (text, index) => new DomainRecipeInstruction { Position = index + 1, Text = text }
+            )
             .ToList();
 
-        return new DomainRecipe(
-            Name: schemaRecipe.Name.FirstOrDefault(),
-            Description: schemaRecipe.Description.FirstOrDefault() as string,
-            ImageUrls: imageUrls,
-            Ingredients: ingredients,
-            Instructions: instructions
-        );
+        return new DomainRecipe
+        {
+            Name = schemaRecipe.Name.FirstOrDefault(),
+            Description = schemaRecipe.Description.FirstOrDefault() as string,
+            ImageUrls = imageUrls,
+            Ingredients = ingredients,
+            Instructions = instructions,
+        };
     }
 }

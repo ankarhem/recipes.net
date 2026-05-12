@@ -44,7 +44,12 @@ public sealed class ScraperService(ILogger<ScraperService> logger) : IScraperSer
             );
         }
 
-        return new ExtractedPage(links, recipe, rawJsonLd);
+        return new ExtractedPage
+        {
+            Links = links,
+            Recipe = recipe,
+            RawJsonLd = rawJsonLd,
+        };
     }
 
     private static List<Uri> ExtractLinks(IDocument document, Uri baseUrl)
