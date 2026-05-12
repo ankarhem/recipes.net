@@ -1,5 +1,6 @@
 using System.Text.Json;
 using AngleSharp;
+using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
 using App.Recipe;
 using Microsoft.Extensions.Logging;
@@ -10,7 +11,7 @@ namespace Infrastructure.Crawler;
 
 public sealed class ScraperService(ILogger<ScraperService> logger) : IScraperService
 {
-    public async Task<IReadOnlyList<Uri>> ExtractLinksAsync(
+    public async Task<ExtractedPage> ExtractPageAsync(
         string html,
         Uri baseUrl,
         CancellationToken cancellationToken = default
@@ -23,7 +24,32 @@ public sealed class ScraperService(ILogger<ScraperService> logger) : IScraperSer
             cancellationToken
         );
 
-        var links = document
+        var links = ExtractLinks(document, baseUrl);
+        var (recipe, rawJsonLd) = ExtractRecipe(document);
+
+        if (recipe is not null)
+        {
+            logger.LogDebug(
+                "Extracted recipe and {LinkCount} links from {Url}",
+                links.Count,
+                document.Url
+            );
+        }
+        else
+        {
+            logger.LogDebug(
+                "Extracted {LinkCount} links from {Url} (no recipe)",
+                links.Count,
+                document.Url
+            );
+        }
+
+        return new ExtractedPage(links, recipe, rawJsonLd);
+    }
+
+    private static List<Uri> ExtractLinks(IDocument document, Uri baseUrl)
+    {
+        return document
             .Links.OfType<IHtmlAnchorElement>()
             .Where(a => !string.IsNullOrWhiteSpace(a.Href))
             .Select(a =>
@@ -34,39 +60,28 @@ public sealed class ScraperService(ILogger<ScraperService> logger) : IScraperSer
             .Where(u => u is not null && u.Host == baseUrl.Host)
             .Cast<Uri>()
             .ToList();
-
-        logger.LogDebug(
-            "Extracted {LinkCount} same-site links from {BaseUrl}",
-            links.Count,
-            baseUrl
-        );
-
-        return links;
     }
 
-    public ExtractedRecipe? ExtractRecipe(string html)
+    private static (Domain.Recipe.Recipe? Recipe, string? RawJsonLd) ExtractRecipe(
+        IDocument document
+    )
     {
-        var config = Configuration.Default;
-        using var context = BrowsingContext.New(config);
-        var document = context.OpenAsync(req => req.Content(html)).GetAwaiter().GetResult();
-
         var scriptNodes = document.QuerySelectorAll("script[type='application/ld+json']");
         foreach (var script in scriptNodes)
         {
-            var jsonLd = script.TextContent;
-            var result = TryDeserializeRecipe(jsonLd);
+            var result = TryDeserializeRecipe(script.TextContent);
             if (result is not null)
             {
-                logger.LogDebug("Extracted recipe from {Url}", document.Url);
-                return result;
+                return result.Value;
             }
         }
 
-        logger.LogDebug("No Schema.org Recipe found in HTML");
-        return null;
+        return (null, null);
     }
 
-    private static ExtractedRecipe? TryDeserializeRecipe(string jsonLd)
+    private static (Domain.Recipe.Recipe Recipe, string RawJsonLd)? TryDeserializeRecipe(
+        string jsonLd
+    )
     {
         try
         {
@@ -95,7 +110,9 @@ public sealed class ScraperService(ILogger<ScraperService> logger) : IScraperSer
         }
     }
 
-    private static ExtractedRecipe? TryDeserializeSingle(JsonElement element)
+    private static (Domain.Recipe.Recipe Recipe, string RawJsonLd)? TryDeserializeSingle(
+        JsonElement element
+    )
     {
         if (!element.TryGetProperty("@type", out var typeElement) || !HasRecipeType(typeElement))
         {
@@ -103,8 +120,14 @@ public sealed class ScraperService(ILogger<ScraperService> logger) : IScraperSer
         }
 
         var rawJson = element.GetRawText();
-        var recipe = SchemaSerializer.DeserializeObject<SchemaRecipe>(rawJson);
-        return recipe is not null ? new ExtractedRecipe(recipe, rawJson) : null;
+        var schemaRecipe = SchemaSerializer.DeserializeObject<SchemaRecipe>(rawJson);
+        if (schemaRecipe is null)
+        {
+            return null;
+        }
+
+        var recipe = RecipeFactory.FromSchema(schemaRecipe);
+        return (recipe, rawJson);
     }
 
     private static bool HasRecipeType(JsonElement typeElement)

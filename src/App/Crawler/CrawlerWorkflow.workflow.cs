@@ -53,23 +53,16 @@ public class CrawlerWorkflow
             return;
         }
 
-        var links = await Workflow.ExecuteLocalActivityAsync(
-            (CrawlerActivities a) => a.ExtractLinksAsync(pageContent, url),
+        var page = await Workflow.ExecuteLocalActivityAsync(
+            (CrawlerActivities a) => a.ExtractPageAsync(pageContent, url),
             new() { StartToCloseTimeout = TimeSpan.FromSeconds(5) }
         );
 
-        var extracted = await Workflow.ExecuteLocalActivityAsync(
-            (CrawlerActivities a) => a.ExtractRecipe(pageContent),
-            new() { StartToCloseTimeout = TimeSpan.FromSeconds(5) }
-        );
-
-        if (extracted is not null)
+        if (page.Recipe is not null)
         {
-            var recipe = RecipeFactory.FromSchema(extracted.SchemaRecipe);
-
             await Workflow.ExecuteActivityAsync(
                 (CrawlerActivities a) =>
-                    a.SaveRecipeAsync(recipe, url.ToString(), extracted.RawJsonLd),
+                    a.SaveRecipeAsync(page.Recipe, url.ToString(), page.RawJsonLd!),
                 new()
                 {
                     StartToCloseTimeout = TimeSpan.FromSeconds(10),
@@ -84,7 +77,7 @@ public class CrawlerWorkflow
             );
         }
 
-        foreach (var link in links)
+        foreach (var link in page.Links)
         {
             if (!_visitedUrls.Contains(link))
             {

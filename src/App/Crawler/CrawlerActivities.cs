@@ -58,16 +58,10 @@ public sealed class CrawlerActivities(
     }
 
     [Activity]
-    public async Task<IReadOnlyList<Uri>> ExtractLinksAsync(string html, Uri baseUrl)
+    public async Task<ExtractedPage> ExtractPageAsync(string html, Uri baseUrl)
     {
         var ct = ActivityExecutionContext.Current.CancellationToken;
-        return await scraper.ExtractLinksAsync(html, baseUrl, ct);
-    }
-
-    [Activity]
-    public ExtractedRecipe? ExtractRecipe(string html)
-    {
-        return scraper.ExtractRecipe(html);
+        return await scraper.ExtractPageAsync(html, baseUrl, ct);
     }
 
     [Activity]
