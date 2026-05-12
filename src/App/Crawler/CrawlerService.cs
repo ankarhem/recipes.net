@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Temporalio.Api.Enums.V1;
 using Temporalio.Client;
 using Temporalio.Exceptions;
 
@@ -59,5 +60,23 @@ public sealed class CrawlerService(
             wf => wf.ResumeAsync(),
             new() { Rpc = new() { CancellationToken = cancellationToken } }
         );
+    }
+
+    public async Task<CrawlStatus> GetStatusAsync(
+        WorkflowId workflowId,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var handle = client.GetWorkflowHandle<CrawlerWorkflow>(workflowId.Value);
+        var description = await handle.DescribeAsync(
+            new() { Rpc = new() { CancellationToken = cancellationToken } }
+        );
+
+        if (description.Status == WorkflowExecutionStatus.Completed)
+        {
+            return new CrawlStatus("completed", 0, 0, false);
+        }
+
+        return await handle.QueryAsync(wf => wf.GetStatus());
     }
 }

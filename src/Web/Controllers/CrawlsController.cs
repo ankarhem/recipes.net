@@ -47,6 +47,15 @@ public class CrawlsController(ICrawlerService crawlerService) : ControllerBase
         return Ok(new { workflowId = workflowId.Value, status = "running" });
     }
 
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetStatus(string id, CancellationToken cancellationToken)
+    {
+        var workflowId = new WorkflowId(id);
+        var status = await crawlerService.GetStatusAsync(workflowId, cancellationToken);
+
+        return Ok(status);
+    }
+
     private static bool IsHttpScheme(Uri uri) =>
         uri.IsAbsoluteUri && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
 }

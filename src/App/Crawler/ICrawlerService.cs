@@ -10,4 +10,9 @@ public interface ICrawlerService
     Task PauseAsync(WorkflowId workflowId, CancellationToken cancellationToken = default);
 
     Task ResumeAsync(WorkflowId workflowId, CancellationToken cancellationToken = default);
+
+    Task<CrawlStatus> GetStatusAsync(
+        WorkflowId workflowId,
+        CancellationToken cancellationToken = default
+    );
 }

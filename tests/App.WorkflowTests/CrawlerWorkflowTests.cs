@@ -382,4 +382,53 @@ public class CrawlerWorkflowTests
             await handle.GetResultAsync();
         });
     }
+
+    [Fact]
+    public async Task RunAsync_GetStatus_ReturnsRunningState()
+    {
+        await using var env = await WorkflowEnvironment.StartTimeSkippingAsync();
+
+        var client = Substitute.For<ICrawlerClient>();
+        client
+            .GetPageAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
+            .Returns(
+                (Func<NSubstitute.Core.CallInfo, Task<string?>>)(
+                    _ => Task.FromResult<string?>("<html><body>no recipe</body></html>")
+                )
+            );
+
+        var activities = new CrawlerActivities(
+            client,
+            new ScraperService(NullLogger<ScraperService>.Instance),
+            Substitute.For<IRecipeRepository>(),
+            NullLogger<CrawlerActivities>.Instance
+        );
+
+        using var worker = new TemporalWorker(
+            env.Client,
+            new TemporalWorkerOptions($"tq-{Guid.NewGuid()}")
+                .AddWorkflow<CrawlerWorkflow>()
+                .AddAllActivities(activities)
+        );
+
+        await worker.ExecuteAsync(async () =>
+        {
+            var handle = await env.Client.StartWorkflowAsync(
+                (CrawlerWorkflow wf) =>
+                    wf.RunAsync(new StartCrawlJobCommand { TargetUrl = SeedUrl }),
+                new(id: $"wf-{Guid.NewGuid()}", taskQueue: worker.Options.TaskQueue!)
+            );
+
+            await handle.SignalAsync(wf => wf.PauseAsync());
+
+            var status = await handle.QueryAsync(wf => wf.GetStatus());
+
+            status.IsPaused.Should().BeTrue();
+            status.UrlsCrawled.Should().BeGreaterThanOrEqualTo(0);
+            status.UrlsQueued.Should().BeGreaterThanOrEqualTo(0);
+
+            await handle.SignalAsync(wf => wf.ResumeAsync());
+            await handle.GetResultAsync();
+        });
+    }
 }

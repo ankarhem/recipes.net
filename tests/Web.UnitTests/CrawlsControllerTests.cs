@@ -182,4 +182,44 @@ public class CrawlsControllerTests
                 Arg.Any<CancellationToken>()
             );
     }
+
+    [Fact]
+    public async Task GetStatus_ReturnsStatusFromService()
+    {
+        var status = new CrawlStatus("running", 5, 3, false);
+        _service
+            .GetStatusAsync(Arg.Any<WorkflowId>(), Arg.Any<CancellationToken>())
+            .Returns(
+                (Func<NSubstitute.Core.CallInfo, Task<CrawlStatus>>)(_ => Task.FromResult(status))
+            );
+        var controller = new CrawlsController(_service);
+
+        var result = await controller.GetStatus(TestWorkflowId.Value, CancellationToken.None);
+
+        var ok = result.Should().BeOfType<OkObjectResult>().Subject;
+        ok.StatusCode.Should().Be(200);
+        ok.Value.Should().BeEquivalentTo(status);
+    }
+
+    [Fact]
+    public async Task GetStatus_PassesWorkflowIdToService()
+    {
+        _service
+            .GetStatusAsync(Arg.Any<WorkflowId>(), Arg.Any<CancellationToken>())
+            .Returns(
+                (Func<NSubstitute.Core.CallInfo, Task<CrawlStatus>>)(
+                    _ => Task.FromResult(new CrawlStatus("running", 0, 0, false))
+                )
+            );
+        var controller = new CrawlsController(_service);
+
+        await controller.GetStatus(TestWorkflowId.Value, CancellationToken.None);
+
+        await _service
+            .Received(1)
+            .GetStatusAsync(
+                Arg.Is<WorkflowId>(id => id.Value == TestWorkflowId.Value),
+                Arg.Any<CancellationToken>()
+            );
+    }
 }

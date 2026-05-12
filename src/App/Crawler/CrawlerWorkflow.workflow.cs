@@ -38,6 +38,10 @@ public class CrawlerWorkflow
     [WorkflowQuery]
     public bool IsPaused => _isPaused;
 
+    [WorkflowQuery]
+    public CrawlStatus GetStatus() =>
+        new("running", _visitedUrls.Count, _urlQueue.Count, _isPaused);
+
     private async Task HandlePageAsync(Uri url)
     {
         if (_visitedUrls.Contains(url))
