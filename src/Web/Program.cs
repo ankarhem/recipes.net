@@ -1,8 +1,6 @@
 using App.Crawler;
-using App.Notifications;
 using App.Recipe;
 using Infrastructure.Crawler;
-using Infrastructure.Notifications;
 using Infrastructure.Recipe;
 using Microsoft.EntityFrameworkCore;
 using OpenTelemetry.Exporter;
@@ -27,7 +25,6 @@ builder
         options.JsonSerializerOptions.Converters.Add(new NullableIso8601DurationConverter());
     });
 builder.Services.AddOpenApi();
-builder.Services.AddHttpClient<INotificationClient, NotificationClient>();
 builder.Services.AddProblemDetails();
 builder.Services.AddHealthChecks().AddCheck<TemporalHealthCheck>("temporal", tags: ["ready"]);
 
@@ -118,12 +115,6 @@ builder.Services.AddTemporalClient(options =>
     options.Interceptors = new[] { new TracingInterceptor() };
 });
 
-builder.Services.AddSingleton<INotificationService>(sp => new NotificationService(
-    sp.GetRequiredService<ILogger<NotificationService>>(),
-    sp.GetRequiredService<ITemporalClient>(),
-    appSettings.Temporal.TaskQueue
-));
-
 builder.Services.AddDbContext<RecipesDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Recipes"))
 );
@@ -140,9 +131,7 @@ builder.Services.AddSingleton<ICrawlerService>(sp => new CrawlerService(
 
 builder
     .Services.AddHostedTemporalWorker(appSettings.Temporal.TaskQueue)
-    .AddTransientActivities<NotificationActivities>()
     .AddTransientActivities<CrawlerActivities>()
-    .AddWorkflow<NotificationWorkflow>()
     .AddWorkflow<CrawlerWorkflow>();
 
 var app = builder.Build();
