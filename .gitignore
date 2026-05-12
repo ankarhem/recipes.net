@@ -69,3 +69,6 @@ Thumbs.db
 ## Nix / direnv
 .direnv/
 .pre-commit-config.yaml
+
+## Environment
+.env

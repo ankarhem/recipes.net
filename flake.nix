@@ -47,6 +47,8 @@
               with pkgs;
               [
                 dotnet
+                dotnet-ef
+                just
                 omnisharp-roslyn
                 nuget
                 temporal-cli

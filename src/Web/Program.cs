@@ -1,5 +1,9 @@
+using App.Crawler;
 using App.Notifications;
+using Infrastructure;
+using Infrastructure.Crawler;
 using Infrastructure.Notifications;
+using Microsoft.EntityFrameworkCore;
 using OpenTelemetry.Exporter;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
@@ -119,12 +123,24 @@ builder.Services.AddSingleton<INotificationService>(sp => new NotificationServic
     appSettings.Temporal.TaskQueue
 ));
 
+builder.Services.AddDbContext<RecipesDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("Recipes"))
+);
+
+builder.Services.AddScoped<IRecipeRepository, RecipeRepository>();
+
 builder
     .Services.AddHostedTemporalWorker(appSettings.Temporal.TaskQueue)
     .AddTransientActivities<NotificationActivities>()
     .AddWorkflow<NotificationWorkflow>();
 
 var app = builder.Build();
+
+if (app.Environment.IsProduction())
+{
+    using var scope = app.Services.CreateScope();
+    await scope.ServiceProvider.GetRequiredService<RecipesDbContext>().Database.MigrateAsync();
+}
 
 if (app.Environment.IsDevelopment())
 {
