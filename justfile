@@ -38,3 +38,14 @@ temporal:
 # Run ast-grep rule tests
 sg-test:
     ast-grep test
+
+# Lint with ast-grep
+lint:
+    ast-grep scan
+
+# Format all code
+format:
+    nix fmt
+
+# Build, test, lint, and format
+validate: build test lint format
