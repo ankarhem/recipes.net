@@ -7,7 +7,7 @@ using Temporalio.Client;
 using Temporalio.Exceptions;
 using Xunit;
 
-namespace App.WorkflowTests;
+namespace App.UnitTests;
 
 public class CrawlerServiceTests
 {

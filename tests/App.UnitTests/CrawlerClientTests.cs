@@ -5,7 +5,7 @@ using Infrastructure.Crawler;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
-namespace App.WorkflowTests;
+namespace App.UnitTests;
 
 public class CrawlerClientTests
 {

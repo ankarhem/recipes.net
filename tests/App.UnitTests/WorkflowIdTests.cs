@@ -2,7 +2,7 @@ using App.Crawler;
 using AwesomeAssertions;
 using Xunit;
 
-namespace App.WorkflowTests;
+namespace App.UnitTests;
 
 public class WorkflowIdTests
 {

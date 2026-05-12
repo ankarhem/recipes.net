@@ -7,7 +7,7 @@ using DomainRecipeIngredient = Domain.Recipe.RecipeIngredient;
 using DomainRecipeInstruction = Domain.Recipe.RecipeInstruction;
 using SchemaRecipe = Schema.NET.Recipe;
 
-namespace App.WorkflowTests;
+namespace App.UnitTests;
 
 public class RecipeFactoryTests
 {
