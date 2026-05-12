@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Web.Models;
 
-public sealed class StartCrawlRequest
+public sealed record StartCrawlRequest
 {
     [Required]
     [Description("The URL to start crawling from. Must use http or https scheme.")]
