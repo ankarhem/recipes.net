@@ -10,27 +10,47 @@ public sealed record StartCrawlRequest
     public Uri? TargetUrl { get; init; }
 }
 
-public sealed record CrawlBadRequestResponse(
-    [property: Description("The error message.")] string Error
-);
+public sealed record CrawlBadRequestResponse
+{
+    [Description("The error message.")]
+    public required string Error { get; init; }
+}
 
-public sealed record CrawlStartedResponse(
-    [property: Description("The unique identifier of the crawl workflow.")] string WorkflowId
-);
+public sealed record CrawlStartedResponse
+{
+    [Description("The unique identifier of the crawl workflow.")]
+    public required string WorkflowId { get; init; }
+}
 
-public sealed record CrawlPausedResponse(
-    [property: Description("The unique identifier of the crawl workflow.")] string WorkflowId,
-    [property: Description("The current status of the crawl.")] string Status
-);
+public sealed record CrawlPausedResponse
+{
+    [Description("The unique identifier of the crawl workflow.")]
+    public required string WorkflowId { get; init; }
 
-public sealed record CrawlResumedResponse(
-    [property: Description("The unique identifier of the crawl workflow.")] string WorkflowId,
-    [property: Description("The current status of the crawl.")] string Status
-);
+    [Description("The current status of the crawl.")]
+    public required string Status { get; init; }
+}
 
-public sealed record CrawlStatusResponse(
-    [property: Description("The current status: running, paused, or completed.")] string Status,
-    [property: Description("Number of URLs that have been crawled.")] int UrlsCrawled,
-    [property: Description("Number of URLs queued for crawling.")] int UrlsQueued,
-    [property: Description("Whether the crawl is currently paused.")] bool IsPaused
-);
+public sealed record CrawlResumedResponse
+{
+    [Description("The unique identifier of the crawl workflow.")]
+    public required string WorkflowId { get; init; }
+
+    [Description("The current status of the crawl.")]
+    public required string Status { get; init; }
+}
+
+public sealed record CrawlStatusResponse
+{
+    [Description("The current status: running, paused, or completed.")]
+    public required string Status { get; init; }
+
+    [Description("Number of URLs that have been crawled.")]
+    public required int UrlsCrawled { get; init; }
+
+    [Description("Number of URLs queued for crawling.")]
+    public required int UrlsQueued { get; init; }
+
+    [Description("Whether the crawl is currently paused.")]
+    public required bool IsPaused { get; init; }
+}

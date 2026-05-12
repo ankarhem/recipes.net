@@ -19,7 +19,7 @@ public class CrawlsController(ICrawlerService crawlerService) : ControllerBase
         if (!IsHttpScheme(targetUrl))
         {
             return BadRequest(
-                new CrawlBadRequestResponse("TargetUrl must use http or https scheme.")
+                new CrawlBadRequestResponse { Error = "TargetUrl must use http or https scheme." }
             );
         }
 
@@ -28,7 +28,7 @@ public class CrawlsController(ICrawlerService crawlerService) : ControllerBase
             cancellationToken
         );
 
-        return Accepted(new CrawlStartedResponse(workflowId.Value));
+        return Accepted(new CrawlStartedResponse { WorkflowId = workflowId.Value });
     }
 
     [HttpPost("{id}/pause")]
@@ -37,7 +37,7 @@ public class CrawlsController(ICrawlerService crawlerService) : ControllerBase
         var workflowId = new WorkflowId(id);
         await crawlerService.PauseAsync(workflowId, cancellationToken);
 
-        return Ok(new CrawlPausedResponse(workflowId.Value, "paused"));
+        return Ok(new CrawlPausedResponse { WorkflowId = workflowId.Value, Status = "paused" });
     }
 
     [HttpPost("{id}/resume")]
@@ -46,7 +46,7 @@ public class CrawlsController(ICrawlerService crawlerService) : ControllerBase
         var workflowId = new WorkflowId(id);
         await crawlerService.ResumeAsync(workflowId, cancellationToken);
 
-        return Ok(new CrawlResumedResponse(workflowId.Value, "running"));
+        return Ok(new CrawlResumedResponse { WorkflowId = workflowId.Value, Status = "running" });
     }
 
     [HttpGet("{id}")]
@@ -56,12 +56,13 @@ public class CrawlsController(ICrawlerService crawlerService) : ControllerBase
         var status = await crawlerService.GetStatusAsync(workflowId, cancellationToken);
 
         return Ok(
-            new CrawlStatusResponse(
-                status.Status,
-                status.UrlsCrawled,
-                status.UrlsQueued,
-                status.IsPaused
-            )
+            new CrawlStatusResponse
+            {
+                Status = status.Status,
+                UrlsCrawled = status.UrlsCrawled,
+                UrlsQueued = status.UrlsQueued,
+                IsPaused = status.IsPaused,
+            }
         );
     }
 
