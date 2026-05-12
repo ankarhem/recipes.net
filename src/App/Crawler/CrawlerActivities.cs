@@ -63,10 +63,8 @@ public sealed class CrawlerActivities(
     }
 
     [Activity]
-    public string? ExtractRecipeJsonLd(string html)
+    public Recipe? ExtractRecipe(string html)
     {
-        return scraper.ExtractRecipe(html) is { } recipe
-            ? SchemaSerializer.SerializeObject(recipe)
-            : null;
+        return scraper.ExtractRecipe(html);
     }
 }

@@ -59,16 +59,14 @@ public class CrawlerWorkflow
             new() { StartToCloseTimeout = TimeSpan.FromSeconds(5) }
         );
 
-        var recipeJson = await Workflow.ExecuteLocalActivityAsync(
-            (CrawlerActivities a) => a.ExtractRecipeJsonLd(pageContent),
+        var recipe = await Workflow.ExecuteLocalActivityAsync(
+            (CrawlerActivities a) => a.ExtractRecipe(pageContent),
             new() { StartToCloseTimeout = TimeSpan.FromSeconds(5) }
         );
 
-        if (recipeJson is not null)
+        if (recipe is not null)
         {
-            var recipe = SchemaSerializer.DeserializeObject<Recipe>(recipeJson);
-            if (recipe is not null)
-                _foundRecipes.Add(recipe);
+            _foundRecipes.Add(recipe);
         }
 
         // Save recipe
