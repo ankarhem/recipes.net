@@ -3,6 +3,7 @@
     <ProjectReference Include="..\Domain\Domain.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Nanoid" Version="3.1.0" />
     <PackageReference Include="SchemaDotNet" Version="14.0.0" />
     <PackageReference Include="Temporalio" Version="1.14.0" />
   </ItemGroup>

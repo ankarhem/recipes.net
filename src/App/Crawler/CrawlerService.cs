@@ -1,5 +1,5 @@
 using Microsoft.Extensions.Logging;
-using Temporalio.Api.Enums.V1;
+using NanoidDotNet;
 using Temporalio.Client;
 using Temporalio.Exceptions;
 
@@ -16,16 +16,14 @@ public sealed class CrawlerService(
         CancellationToken cancellationToken = default
     )
     {
-        var host = command.TargetUrl.Host;
+        var workflowId = $"{command.TargetUrl.Host}-{Nanoid.Generate(size: 10)}";
 
         try
         {
             var handle = await client.StartWorkflowAsync(
                 (CrawlerWorkflow wf) => wf.RunAsync(command),
-                new(id: host, taskQueue)
+                new(id: workflowId, taskQueue)
                 {
-                    IdReusePolicy = WorkflowIdReusePolicy.RejectDuplicate,
-                    IdConflictPolicy = WorkflowIdConflictPolicy.UseExisting,
                     Rpc = new() { CancellationToken = cancellationToken },
                 }
             );
