@@ -30,7 +30,8 @@ public class CrawlsControllerTests
 
         var accepted = result.Should().BeOfType<AcceptedResult>().Subject;
         accepted.StatusCode.Should().Be(202);
-        accepted.Value.Should().BeEquivalentTo(new { workflowId = TestWorkflowId.Value });
+        var response = accepted.Value.Should().BeOfType<CrawlStartedResponse>().Subject;
+        response.WorkflowId.Should().Be(TestWorkflowId.Value);
     }
 
     [Fact]
@@ -87,7 +88,10 @@ public class CrawlsControllerTests
 
         var result = await controller.Post(request, CancellationToken.None);
 
-        result.Should().BeOfType<BadRequestObjectResult>().Which.StatusCode.Should().Be(400);
+        var badRequest = result.Should().BeOfType<BadRequestObjectResult>().Subject;
+        badRequest.StatusCode.Should().Be(400);
+        var response = badRequest.Value.Should().BeOfType<CrawlBadRequestResponse>().Subject;
+        response.Error.Should().Be("TargetUrl must use http or https scheme.");
         await _service.DidNotReceiveWithAnyArgs().StartAsync(default!, default);
     }
 
@@ -136,8 +140,9 @@ public class CrawlsControllerTests
 
         var ok = result.Should().BeOfType<OkObjectResult>().Subject;
         ok.StatusCode.Should().Be(200);
-        ok.Value.Should()
-            .BeEquivalentTo(new { workflowId = TestWorkflowId.Value, status = "paused" });
+        var response = ok.Value.Should().BeOfType<CrawlPausedResponse>().Subject;
+        response.WorkflowId.Should().Be(TestWorkflowId.Value);
+        response.Status.Should().Be("paused");
     }
 
     [Fact]
@@ -164,8 +169,9 @@ public class CrawlsControllerTests
 
         var ok = result.Should().BeOfType<OkObjectResult>().Subject;
         ok.StatusCode.Should().Be(200);
-        ok.Value.Should()
-            .BeEquivalentTo(new { workflowId = TestWorkflowId.Value, status = "running" });
+        var response = ok.Value.Should().BeOfType<CrawlResumedResponse>().Subject;
+        response.WorkflowId.Should().Be(TestWorkflowId.Value);
+        response.Status.Should().Be("running");
     }
 
     [Fact]
@@ -198,7 +204,11 @@ public class CrawlsControllerTests
 
         var ok = result.Should().BeOfType<OkObjectResult>().Subject;
         ok.StatusCode.Should().Be(200);
-        ok.Value.Should().BeEquivalentTo(status);
+        var response = ok.Value.Should().BeOfType<CrawlStatusResponse>().Subject;
+        response.Status.Should().Be("running");
+        response.UrlsCrawled.Should().Be(5);
+        response.UrlsQueued.Should().Be(3);
+        response.IsPaused.Should().BeFalse();
     }
 
     [Fact]

@@ -18,7 +18,9 @@ public class CrawlsController(ICrawlerService crawlerService) : ControllerBase
 
         if (!IsHttpScheme(targetUrl))
         {
-            return BadRequest(new { error = "TargetUrl must use http or https scheme." });
+            return BadRequest(
+                new CrawlBadRequestResponse("TargetUrl must use http or https scheme.")
+            );
         }
 
         var workflowId = await crawlerService.StartAsync(
@@ -26,7 +28,7 @@ public class CrawlsController(ICrawlerService crawlerService) : ControllerBase
             cancellationToken
         );
 
-        return Accepted(new { workflowId = workflowId.Value });
+        return Accepted(new CrawlStartedResponse(workflowId.Value));
     }
 
     [HttpPost("{id}/pause")]
@@ -35,7 +37,7 @@ public class CrawlsController(ICrawlerService crawlerService) : ControllerBase
         var workflowId = new WorkflowId(id);
         await crawlerService.PauseAsync(workflowId, cancellationToken);
 
-        return Ok(new { workflowId = workflowId.Value, status = "paused" });
+        return Ok(new CrawlPausedResponse(workflowId.Value, "paused"));
     }
 
     [HttpPost("{id}/resume")]
@@ -44,7 +46,7 @@ public class CrawlsController(ICrawlerService crawlerService) : ControllerBase
         var workflowId = new WorkflowId(id);
         await crawlerService.ResumeAsync(workflowId, cancellationToken);
 
-        return Ok(new { workflowId = workflowId.Value, status = "running" });
+        return Ok(new CrawlResumedResponse(workflowId.Value, "running"));
     }
 
     [HttpGet("{id}")]
@@ -53,7 +55,14 @@ public class CrawlsController(ICrawlerService crawlerService) : ControllerBase
         var workflowId = new WorkflowId(id);
         var status = await crawlerService.GetStatusAsync(workflowId, cancellationToken);
 
-        return Ok(status);
+        return Ok(
+            new CrawlStatusResponse(
+                status.Status,
+                status.UrlsCrawled,
+                status.UrlsQueued,
+                status.IsPaused
+            )
+        );
     }
 
     private static bool IsHttpScheme(Uri uri) =>
