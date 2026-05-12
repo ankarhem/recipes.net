@@ -18,7 +18,7 @@ public class CrawlerWorkflow
         while (_urlQueue.Count > 0)
         {
             var url = _urlQueue.Dequeue();
-            await Workflow.DelayAsync(TimeSpan.FromMilliseconds(new Random().Next(300, 1000)));
+            await Workflow.DelayAsync(TimeSpan.FromMilliseconds(Workflow.Random.Next(300, 1000)));
             await HandlePageAsync(url);
         }
     }
