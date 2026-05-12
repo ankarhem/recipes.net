@@ -65,7 +65,7 @@ public class CrawlerWorkflowTests
     [Fact]
     public async Task RunAsync_SinglePageWithRecipe_SavesRecipe()
     {
-        await using var env = await WorkflowEnvironment.StartLocalAsync();
+        await using var env = await WorkflowEnvironment.StartTimeSkippingAsync();
 
         var savedRecipes =
             new List<(Domain.Recipe.Recipe Recipe, string SourceUrl, string RawJson)>();
@@ -121,7 +121,7 @@ public class CrawlerWorkflowTests
     [Fact]
     public async Task RunAsync_NullPageContent_SkipsProcessing()
     {
-        await using var env = await WorkflowEnvironment.StartLocalAsync();
+        await using var env = await WorkflowEnvironment.StartTimeSkippingAsync();
 
         var client = Substitute.For<ICrawlerClient>();
         client
@@ -166,7 +166,7 @@ public class CrawlerWorkflowTests
     [Fact]
     public async Task RunAsync_PageWithLinks_CrawlsLinkedPages()
     {
-        await using var env = await WorkflowEnvironment.StartLocalAsync();
+        await using var env = await WorkflowEnvironment.StartTimeSkippingAsync();
 
         var page2Url = new Uri("https://example.com/page2");
         var fetchedUrls = new List<Uri>();
@@ -217,7 +217,7 @@ public class CrawlerWorkflowTests
     [Fact]
     public async Task RunAsync_DoesNotRevisitUrls()
     {
-        await using var env = await WorkflowEnvironment.StartLocalAsync();
+        await using var env = await WorkflowEnvironment.StartTimeSkippingAsync();
 
         var circularUrl = new Uri("https://example.com/a");
         var fetchedUrls = new List<Uri>();
@@ -268,7 +268,7 @@ public class CrawlerWorkflowTests
     [Fact]
     public async Task RunAsync_PageWithLinksAndRecipe_SavesRecipeAndCrawlsLinks()
     {
-        await using var env = await WorkflowEnvironment.StartLocalAsync();
+        await using var env = await WorkflowEnvironment.StartTimeSkippingAsync();
 
         var page2Url = new Uri("https://example.com/page2");
         var savedRecipes = new List<Domain.Recipe.Recipe>();
