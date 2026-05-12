@@ -325,4 +325,61 @@ public class CrawlerWorkflowTests
         savedRecipes.Should().HaveCount(1);
         savedRecipes[0].Name.Should().Be("Chocolate Cake");
     }
+
+    [Fact]
+    public async Task RunAsync_PauseAndResume_ControlsProcessing()
+    {
+        await using var env = await WorkflowEnvironment.StartTimeSkippingAsync();
+
+        var fetchCount = 0;
+        var client = Substitute.For<ICrawlerClient>();
+        client
+            .GetPageAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
+            .Returns(
+                (Func<NSubstitute.Core.CallInfo, Task<string?>>)(
+                    call =>
+                    {
+                        fetchCount++;
+                        return Task.FromResult<string?>("""<html><body>no recipe</body></html>""");
+                    }
+                )
+            );
+
+        var activities = new CrawlerActivities(
+            client,
+            new ScraperService(NullLogger<ScraperService>.Instance),
+            Substitute.For<IRecipeRepository>(),
+            NullLogger<CrawlerActivities>.Instance
+        );
+
+        using var worker = new TemporalWorker(
+            env.Client,
+            new TemporalWorkerOptions($"tq-{Guid.NewGuid()}")
+                .AddWorkflow<CrawlerWorkflow>()
+                .AddAllActivities(activities)
+        );
+
+        await worker.ExecuteAsync(async () =>
+        {
+            var workflowId = $"wf-{Guid.NewGuid()}";
+            var handle = await env.Client.StartWorkflowAsync(
+                (CrawlerWorkflow wf) =>
+                    wf.RunAsync(new StartCrawlJobCommand { TargetUrl = SeedUrl }),
+                new(id: workflowId, taskQueue: worker.Options.TaskQueue!)
+            );
+
+            // Signal pause before workflow completes
+            await handle.SignalAsync(wf => wf.PauseAsync());
+            var isPaused = await handle.QueryAsync(wf => wf.IsPaused);
+            isPaused.Should().BeTrue();
+
+            // Signal resume
+            await handle.SignalAsync(wf => wf.ResumeAsync());
+            isPaused = await handle.QueryAsync(wf => wf.IsPaused);
+            isPaused.Should().BeFalse();
+
+            // Let workflow complete
+            await handle.GetResultAsync();
+        });
+    }
 }

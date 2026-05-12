@@ -6,4 +6,8 @@ public interface ICrawlerService
         StartCrawlJobCommand command,
         CancellationToken cancellationToken = default
     );
+
+    Task PauseAsync(WorkflowId workflowId, CancellationToken cancellationToken = default);
+
+    Task ResumeAsync(WorkflowId workflowId, CancellationToken cancellationToken = default);
 }

@@ -126,4 +126,60 @@ public class CrawlsControllerTests
 
         result.Should().BeOfType<AcceptedResult>();
     }
+
+    [Fact]
+    public async Task Pause_ValidId_Returns200WithPausedStatus()
+    {
+        var controller = new CrawlsController(_service);
+
+        var result = await controller.Pause(TestWorkflowId.Value, CancellationToken.None);
+
+        var ok = result.Should().BeOfType<OkObjectResult>().Subject;
+        ok.StatusCode.Should().Be(200);
+        ok.Value.Should()
+            .BeEquivalentTo(new { workflowId = TestWorkflowId.Value, status = "paused" });
+    }
+
+    [Fact]
+    public async Task Pause_PassesWorkflowIdToService()
+    {
+        var controller = new CrawlsController(_service);
+
+        await controller.Pause(TestWorkflowId.Value, CancellationToken.None);
+
+        await _service
+            .Received(1)
+            .PauseAsync(
+                Arg.Is<WorkflowId>(id => id.Value == TestWorkflowId.Value),
+                Arg.Any<CancellationToken>()
+            );
+    }
+
+    [Fact]
+    public async Task Resume_ValidId_Returns200WithRunningStatus()
+    {
+        var controller = new CrawlsController(_service);
+
+        var result = await controller.Resume(TestWorkflowId.Value, CancellationToken.None);
+
+        var ok = result.Should().BeOfType<OkObjectResult>().Subject;
+        ok.StatusCode.Should().Be(200);
+        ok.Value.Should()
+            .BeEquivalentTo(new { workflowId = TestWorkflowId.Value, status = "running" });
+    }
+
+    [Fact]
+    public async Task Resume_PassesWorkflowIdToService()
+    {
+        var controller = new CrawlsController(_service);
+
+        await controller.Resume(TestWorkflowId.Value, CancellationToken.None);
+
+        await _service
+            .Received(1)
+            .ResumeAsync(
+                Arg.Is<WorkflowId>(id => id.Value == TestWorkflowId.Value),
+                Arg.Any<CancellationToken>()
+            );
+    }
 }

@@ -9,6 +9,7 @@ public class CrawlerWorkflow
 {
     private readonly HashSet<Uri> _visitedUrls = new();
     private readonly Queue<Uri> _urlQueue = new();
+    private bool _isPaused;
 
     [WorkflowRun]
     public async Task RunAsync(StartCrawlJobCommand command)
@@ -17,11 +18,25 @@ public class CrawlerWorkflow
 
         while (_urlQueue.Count > 0)
         {
+            if (_isPaused)
+            {
+                await Workflow.WaitConditionAsync(() => !_isPaused);
+            }
+
             var url = _urlQueue.Dequeue();
             await Workflow.DelayAsync(TimeSpan.FromMilliseconds(Workflow.Random.Next(300, 1000)));
             await HandlePageAsync(url);
         }
     }
+
+    [WorkflowSignal]
+    public async Task PauseAsync() => _isPaused = true;
+
+    [WorkflowSignal]
+    public async Task ResumeAsync() => _isPaused = false;
+
+    [WorkflowQuery]
+    public bool IsPaused => _isPaused;
 
     private async Task HandlePageAsync(Uri url)
     {

@@ -36,4 +36,28 @@ public sealed class CrawlerService(
             throw;
         }
     }
+
+    public async Task PauseAsync(
+        WorkflowId workflowId,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var handle = client.GetWorkflowHandle<CrawlerWorkflow>(workflowId.Value);
+        await handle.SignalAsync(
+            wf => wf.PauseAsync(),
+            new() { Rpc = new() { CancellationToken = cancellationToken } }
+        );
+    }
+
+    public async Task ResumeAsync(
+        WorkflowId workflowId,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var handle = client.GetWorkflowHandle<CrawlerWorkflow>(workflowId.Value);
+        await handle.SignalAsync(
+            wf => wf.ResumeAsync(),
+            new() { Rpc = new() { CancellationToken = cancellationToken } }
+        );
+    }
 }
