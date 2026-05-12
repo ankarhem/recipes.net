@@ -4,6 +4,7 @@ using AngleSharp.Html.Dom;
 using App.Crawler;
 using Microsoft.Extensions.Logging;
 using Schema.NET;
+using SchemaRecipe = Schema.NET.Recipe;
 
 namespace Infrastructure.Crawler;
 
@@ -102,7 +103,7 @@ public sealed class ScraperService(ILogger<ScraperService> logger) : IScraperSer
         }
 
         var rawJson = element.GetRawText();
-        var recipe = SchemaSerializer.DeserializeObject<Recipe>(rawJson);
+        var recipe = SchemaSerializer.DeserializeObject<SchemaRecipe>(rawJson);
         return recipe is not null ? new ExtractedRecipe(recipe, rawJson) : null;
     }
 

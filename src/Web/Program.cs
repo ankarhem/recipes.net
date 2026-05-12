@@ -1,8 +1,8 @@
 using App.Crawler;
 using App.Notifications;
-using Infrastructure;
 using Infrastructure.Crawler;
 using Infrastructure.Notifications;
+using Infrastructure.Recipe;
 using Microsoft.EntityFrameworkCore;
 using OpenTelemetry.Exporter;
 using OpenTelemetry.Metrics;

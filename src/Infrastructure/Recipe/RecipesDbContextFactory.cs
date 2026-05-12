@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 
-namespace Infrastructure;
+namespace Infrastructure.Recipe;
 
 public sealed class RecipesDbContextFactory : IDesignTimeDbContextFactory<RecipesDbContext>
 {

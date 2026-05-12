@@ -1,12 +1,12 @@
 using App.Crawler;
-using Domain.Recipe;
+using DomainRecipe = Domain.Recipe.Recipe;
 
-namespace Infrastructure.Crawler;
+namespace Infrastructure.Recipe;
 
 public sealed class RecipeRepository(RecipesDbContext db) : IRecipeRepository
 {
     public async Task SaveImportedAsync(
-        Recipe recipe,
+        DomainRecipe recipe,
         string sourceUrl,
         string rawSchemaJson,
         CancellationToken cancellationToken = default

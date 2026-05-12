@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 
-namespace Infrastructure;
+namespace Infrastructure.Recipe;
 
 public sealed class RecipesDbContext(DbContextOptions<RecipesDbContext> options)
     : DbContext(options)

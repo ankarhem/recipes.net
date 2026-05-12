@@ -1,6 +1,6 @@
-using Domain.Recipe;
+using DomainRecipe = Domain.Recipe.Recipe;
 
-namespace Infrastructure;
+namespace Infrastructure.Recipe;
 
 public sealed class RecipeEntity
 {
@@ -11,7 +11,11 @@ public sealed class RecipeEntity
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 
-    public static RecipeEntity FromImport(Recipe recipe, string sourceUrl, string rawSchemaJson)
+    public static RecipeEntity FromImport(
+        DomainRecipe recipe,
+        string sourceUrl,
+        string rawSchemaJson
+    )
     {
         return new RecipeEntity
         {
