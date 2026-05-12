@@ -1,0 +1,22 @@
+id: require-braces
+language: CSharp
+rule:
+  any:
+    - kind: if_statement
+      not:
+        has:
+          kind: block
+          field: consequence
+    - all:
+        - kind: if_statement
+        - not:
+            any:
+              - has:
+                  kind: block
+                  field: alternative
+              - has:
+                  kind: if_statement
+                  field: alternative
+        - regex: "else"
+message: if statements must always use braces
+severity: error

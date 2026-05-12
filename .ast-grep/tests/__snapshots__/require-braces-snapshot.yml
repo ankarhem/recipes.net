@@ -1,0 +1,71 @@
+id: require-braces
+snapshots:
+  ? |
+    if (a) {
+      if (b) DoSomething();
+    }
+  : labels:
+    - source: if (b) DoSomething();
+      style: primary
+      start: 11
+      end: 32
+  if (broken) throw new Exception();:
+    labels:
+    - source: if (broken) throw new Exception();
+      style: primary
+      start: 0
+      end: 34
+  if (condition) Foo();:
+    labels:
+    - source: if (condition) Foo();
+      style: primary
+      start: 0
+      end: 21
+  if (flag) x = 42;:
+    labels:
+    - source: if (flag) x = 42;
+      style: primary
+      start: 0
+      end: 17
+  if (guard) return;:
+    labels:
+    - source: if (guard) return;
+      style: primary
+      start: 0
+      end: 18
+  if (x) DoSomething();:
+    labels:
+    - source: if (x) DoSomething();
+      style: primary
+      start: 0
+      end: 21
+  ? |
+    if (x) DoSomething();
+    else DoOther();
+  : labels:
+    - source: |-
+        if (x) DoSomething();
+        else DoOther();
+      style: primary
+      start: 0
+      end: 37
+  ? |
+    if (x) DoSomething();
+    else { DoOther(); }
+  : labels:
+    - source: |-
+        if (x) DoSomething();
+        else { DoOther(); }
+      style: primary
+      start: 0
+      end: 41
+  ? |
+    if (x) { DoSomething(); }
+    else DoOther();
+  : labels:
+    - source: |-
+        if (x) { DoSomething(); }
+        else DoOther();
+      style: primary
+      start: 0
+      end: 41

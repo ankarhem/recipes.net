@@ -34,3 +34,7 @@ watch:
 # Start Temporal dev server
 temporal:
     temporal server start-dev
+
+# Run ast-grep rule tests
+sg-test:
+    ast-grep test
