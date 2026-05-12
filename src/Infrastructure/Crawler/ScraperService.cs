@@ -86,28 +86,46 @@ public sealed class ScraperService(ILogger<ScraperService> logger) : IScraperSer
         try
         {
             using var doc = JsonDocument.Parse(jsonLd);
-            var root = doc.RootElement;
-
-            if (root.ValueKind == JsonValueKind.Array)
-            {
-                foreach (var element in root.EnumerateArray())
-                {
-                    var result = TryDeserializeSingle(element);
-                    if (result is not null)
-                    {
-                        return result;
-                    }
-                }
-
-                return null;
-            }
-
-            return TryDeserializeSingle(root);
+            return FindRecipe(doc.RootElement);
         }
         catch
         {
             return null;
         }
+    }
+
+    private static (Domain.Recipe.Recipe Recipe, string RawJsonLd)? FindRecipe(JsonElement element)
+    {
+        if (element.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in element.EnumerateArray())
+            {
+                var result = FindRecipe(item);
+                if (result is not null)
+                {
+                    return result;
+                }
+            }
+            return null;
+        }
+
+        if (element.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        var direct = TryDeserializeSingle(element);
+        if (direct is not null)
+        {
+            return direct;
+        }
+
+        if (element.TryGetProperty("@graph", out var graph))
+        {
+            return FindRecipe(graph);
+        }
+
+        return null;
     }
 
     private static (Domain.Recipe.Recipe Recipe, string RawJsonLd)? TryDeserializeSingle(

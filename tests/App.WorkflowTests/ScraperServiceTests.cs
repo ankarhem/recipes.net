@@ -104,6 +104,33 @@ public class ScraperServiceTests
         <html><head><title>No scripts</title></head><body>plain page</body></html>
         """;
 
+    private static readonly string PageWithGraphContainingRecipeHtml = """
+        <html><head>
+        <script type="application/ld+json">
+        {
+          "@context": "https://schema.org",
+          "@graph": [
+            {
+              "@type": "WebSite",
+              "name": "Cooking Site",
+              "url": "https://example.com"
+            },
+            {
+              "@type": "Article",
+              "headline": "How to bake"
+            },
+            {
+              "@type": "Recipe",
+              "name": "Graph Recipe",
+              "recipeIngredient": ["1 cup sugar", "2 eggs"],
+              "recipeInstructions": ["Mix well", "Bake until golden"]
+            }
+          ]
+        }
+        </script>
+        </head><body>graph page</body></html>
+        """;
+
     private static ScraperService CreateService() => new(NullLogger<ScraperService>.Instance);
 
     [Fact]
@@ -300,5 +327,82 @@ public class ScraperServiceTests
 
         var result = await service.ExtractPageAsync(html, BaseUrl);
         result.Links.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ExtractPageAsync_GraphContainingRecipe_ExtractsRecipe()
+    {
+        var service = CreateService();
+
+        var result = await service.ExtractPageAsync(PageWithGraphContainingRecipeHtml, BaseUrl);
+
+        result.Recipe.Should().NotBeNull();
+        result.Recipe!.Name.Should().Be("Graph Recipe");
+        result.Recipe.Ingredients.Should().HaveCount(2);
+        result.Recipe.Instructions.Should().HaveCount(2);
+        result.RawJsonLd.Should().NotBeNull();
+        result.RawJsonLd.Should().Contain("Graph Recipe");
+        result.RawJsonLd.Should().NotContain("WebSite");
+        result.RawJsonLd.Should().NotContain("@graph");
+    }
+
+    [Fact]
+    public async Task ExtractPageAsync_GraphWithoutRecipe_ReturnsNoRecipe()
+    {
+        var service = CreateService();
+        var html = """
+            <html><head>
+            <script type="application/ld+json">
+            {
+              "@context": "https://schema.org",
+              "@graph": [
+                { "@type": "WebSite", "name": "Site" },
+                { "@type": "Article", "headline": "Not a recipe" }
+              ]
+            }
+            </script>
+            </head><body>graph page</body></html>
+            """;
+
+        var result = await service.ExtractPageAsync(html, BaseUrl);
+
+        result.Recipe.Should().BeNull();
+        result.RawJsonLd.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ExtractPageAsync_GraphWithMultipleRecipes_ReturnsFirst()
+    {
+        var service = CreateService();
+        var html = """
+            <html><head>
+            <script type="application/ld+json">
+            {
+              "@context": "https://schema.org",
+              "@graph": [
+                {
+                  "@type": "Recipe",
+                  "name": "First Graph Recipe",
+                  "recipeIngredient": ["1 cup"],
+                  "recipeInstructions": ["Step 1"]
+                },
+                {
+                  "@type": "Recipe",
+                  "name": "Second Graph Recipe",
+                  "recipeIngredient": ["2 cups"],
+                  "recipeInstructions": ["Step 2"]
+                }
+              ]
+            }
+            </script>
+            </head><body>graph page</body></html>
+            """;
+
+        var result = await service.ExtractPageAsync(html, BaseUrl);
+
+        result.Recipe.Should().NotBeNull();
+        result.Recipe!.Name.Should().Be("First Graph Recipe");
+        result.RawJsonLd.Should().Contain("First Graph Recipe");
+        result.RawJsonLd.Should().NotContain("Second Graph Recipe");
     }
 }
