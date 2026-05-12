@@ -1,11 +1,13 @@
-using Domain.Recipe;
+using DomainRecipe = Domain.Recipe.Recipe;
+using DomainRecipeIngredient = Domain.Recipe.RecipeIngredient;
+using DomainRecipeInstruction = Domain.Recipe.RecipeInstruction;
 using SchemaRecipe = Schema.NET.Recipe;
 
-namespace App.Crawler;
+namespace App.Recipe;
 
 public static class RecipeFactory
 {
-    public static Recipe FromSchema(SchemaRecipe schemaRecipe)
+    public static DomainRecipe FromSchema(SchemaRecipe schemaRecipe)
     {
         var imageUrls = schemaRecipe
             .Image.Where(u => u is Uri)
@@ -14,16 +16,16 @@ public static class RecipeFactory
             .ToList();
 
         var ingredients = schemaRecipe
-            .RecipeIngredient.Select(i => new RecipeIngredient(i))
+            .RecipeIngredient.Select(i => new DomainRecipeIngredient(i))
             .ToList();
 
         var instructions = schemaRecipe
             .RecipeInstructions.Where(i => i is string)
             .Cast<string>()
-            .Select((text, index) => new RecipeInstruction(index + 1, text))
+            .Select((text, index) => new DomainRecipeInstruction(index + 1, text))
             .ToList();
 
-        return new Recipe(
+        return new DomainRecipe(
             Name: schemaRecipe.Name.FirstOrDefault(),
             Description: schemaRecipe.Description.FirstOrDefault() as string,
             ImageUrls: imageUrls,

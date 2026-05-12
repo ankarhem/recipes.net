@@ -1,7 +1,7 @@
 using System.Text.Json;
 using AngleSharp;
 using AngleSharp.Html.Dom;
-using App.Crawler;
+using App.Recipe;
 using Microsoft.Extensions.Logging;
 using Schema.NET;
 using SchemaRecipe = Schema.NET.Recipe;

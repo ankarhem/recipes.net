@@ -1,5 +1,6 @@
 using App.Crawler;
 using App.Notifications;
+using App.Recipe;
 using Infrastructure.Crawler;
 using Infrastructure.Notifications;
 using Infrastructure.Recipe;

@@ -1,6 +1,6 @@
 using Schema.NET;
 
-namespace App.Crawler;
+namespace App.Recipe;
 
 public interface IScraperService
 {

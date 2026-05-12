@@ -1,4 +1,4 @@
-using App.Crawler;
+using App.Recipe;
 using DomainRecipe = Domain.Recipe.Recipe;
 
 namespace Infrastructure.Recipe;

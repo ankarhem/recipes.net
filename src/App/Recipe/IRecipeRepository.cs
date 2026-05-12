@@ -1,11 +1,11 @@
-using Domain.Recipe;
+using DomainRecipe = Domain.Recipe.Recipe;
 
-namespace App.Crawler;
+namespace App.Recipe;
 
 public interface IRecipeRepository
 {
     Task SaveImportedAsync(
-        Recipe recipe,
+        DomainRecipe recipe,
         string sourceUrl,
         string rawSchemaJson,
         CancellationToken cancellationToken = default

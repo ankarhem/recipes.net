@@ -1,8 +1,9 @@
 using System.Net;
-using Domain.Recipe;
+using App.Recipe;
 using Microsoft.Extensions.Logging;
 using Temporalio.Activities;
 using Temporalio.Exceptions;
+using DomainRecipe = Domain.Recipe.Recipe;
 
 namespace App.Crawler;
 
@@ -70,7 +71,7 @@ public sealed class CrawlerActivities(
     }
 
     [Activity]
-    public async Task SaveRecipeAsync(Recipe recipe, string sourceUrl, string rawSchemaJson)
+    public async Task SaveRecipeAsync(DomainRecipe recipe, string sourceUrl, string rawSchemaJson)
     {
         var ct = ActivityExecutionContext.Current.CancellationToken;
         await repository.SaveImportedAsync(recipe, sourceUrl, rawSchemaJson, ct);
