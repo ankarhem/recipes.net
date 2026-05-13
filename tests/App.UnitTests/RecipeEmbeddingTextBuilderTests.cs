@@ -16,6 +16,7 @@ public class RecipeEmbeddingTextBuilderTests
     {
         var recipe = new DomainRecipe
         {
+            Id = Guid.NewGuid(),
             Name = "Tomato Soup",
             Description = "A simple tomato soup",
             ImageUrls = Array.Empty<string>(),
@@ -135,6 +136,7 @@ public class RecipeEmbeddingTextBuilderTests
     {
         var recipe = new DomainRecipe
         {
+            Id = Guid.NewGuid(),
             Name = "Tomato Soup",
             Description = "A simple tomato soup",
             ImageUrls = Array.Empty<string>(),
@@ -167,6 +169,7 @@ public class RecipeEmbeddingTextBuilderTests
     private static DomainRecipe MinimalRecipe() =>
         new()
         {
+            Id = Guid.NewGuid(),
             ImageUrls = Array.Empty<string>(),
             Ingredients = Array.Empty<DomainRecipeIngredient>(),
             Instructions = Array.Empty<DomainRecipeInstruction>(),

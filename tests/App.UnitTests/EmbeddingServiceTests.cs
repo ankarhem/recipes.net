@@ -15,6 +15,7 @@ public class EmbeddingServiceTests
 {
     private static readonly DomainRecipe SampleRecipe = new()
     {
+        Id = Guid.NewGuid(),
         Name = "Tomato Soup",
         Description = "A simple soup",
         ImageUrls = Array.Empty<string>(),

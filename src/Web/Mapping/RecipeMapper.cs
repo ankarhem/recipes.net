@@ -5,10 +5,10 @@ namespace Web.Mapping;
 
 public static class RecipeMapper
 {
-    public static GetRecipeResponse ToResponse(Guid id, DomainRecipe recipe) =>
+    public static GetRecipeResponse ToResponse(DomainRecipe recipe) =>
         new()
         {
-            Id = id,
+            Id = recipe.Id,
             Name = recipe.Name ?? "Untitled",
             Description = recipe.Description,
             ImageUrls = recipe.ImageUrls,

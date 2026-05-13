@@ -40,3 +40,12 @@ public sealed record RecipeInstructionResponse
     [Description("An optional name for this instruction group.")]
     public string? Name { get; init; }
 }
+
+public sealed record SearchRecipesResponse
+{
+    [Description("The search query that was used.")]
+    public required string Query { get; init; }
+
+    [Description("The search results, ordered by relevance.")]
+    public required IReadOnlyList<GetRecipeResponse> Results { get; init; }
+}

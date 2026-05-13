@@ -50,6 +50,7 @@ public class RecipeEntityTests
 
         var recipe = entity.ToDomain();
 
+        recipe.Id.Should().Be(entity.Id);
         recipe.Name.Should().Be("Test Recipe");
         recipe.Description.Should().Be("A test description");
         recipe.ImageUrls.Should().Equal("https://example.com/img.jpg");

@@ -1,5 +1,7 @@
 using App.Recipe;
 using Microsoft.EntityFrameworkCore;
+using Pgvector;
+using Pgvector.EntityFrameworkCore;
 using DomainRecipe = Domain.Recipe.Recipe;
 
 namespace Infrastructure.Recipe;
@@ -42,5 +44,40 @@ public sealed class RecipeRepository(RecipesDbContext db) : IRecipeRepository
         await db.SaveChangesAsync(cancellationToken);
 
         return entity.Id;
+    }
+
+    public async Task<IReadOnlyList<DomainRecipe>> SearchAsync(
+        ReadOnlyMemory<float> queryEmbedding,
+        string model,
+        int dimensions,
+        int limit,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var queryVector = new Vector(queryEmbedding);
+
+        var hitIds = await db.RecipeEmbeddings
+            .Where(e => e.Model == model && e.Dimensions == dimensions)
+            .OrderBy(e => e.Embedding.CosineDistance(queryVector))
+            .Take(limit)
+            .Select(e => e.RecipeId)
+            .ToListAsync(cancellationToken);
+
+        if (hitIds.Count == 0)
+        {
+            return [];
+        }
+
+        var recipes = await db.Recipes.AsNoTracking()
+            .AsSplitQuery()
+            .Include(r => r.IngredientEntities)
+            .Include(r => r.InstructionEntities)
+            .Where(r => hitIds.Contains(r.Id))
+            .ToDictionaryAsync(r => r.Id, cancellationToken);
+
+        return hitIds
+            .Where(recipes.ContainsKey)
+            .Select(id => recipes[id].ToDomain())
+            .ToList();
     }
 }
