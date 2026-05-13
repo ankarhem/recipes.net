@@ -14,6 +14,7 @@ public class RecipesControllerTests
 
     private static readonly Domain.Recipe.Recipe TestRecipe = new()
     {
+        Id = Guid.NewGuid(),
         Name = "Test Recipe",
         Description = "A test",
         ImageUrls = ["https://example.com/image.jpg"],
@@ -28,9 +29,8 @@ public class RecipesControllerTests
     [Fact]
     public async Task Get_ExistingId_Returns200WithRecipe()
     {
-        var id = Guid.NewGuid();
         _service
-            .GetRecipeAsync(id, Arg.Any<CancellationToken>())
+            .GetRecipeAsync(TestRecipe.Id, Arg.Any<CancellationToken>())
             .Returns(
                 (Func<NSubstitute.Core.CallInfo, Task<Domain.Recipe.Recipe?>>)(
                     _ => Task.FromResult<Domain.Recipe.Recipe?>(TestRecipe)
@@ -38,12 +38,12 @@ public class RecipesControllerTests
             );
         var controller = new RecipesController(_service);
 
-        var result = await controller.Get(id, CancellationToken.None);
+        var result = await controller.Get(TestRecipe.Id, CancellationToken.None);
 
         var ok = result.Should().BeOfType<OkObjectResult>().Subject;
         ok.StatusCode.Should().Be(200);
         var response = ok.Value.Should().BeOfType<GetRecipeResponse>().Subject;
-        response.Id.Should().Be(id);
+        response.Id.Should().Be(TestRecipe.Id);
         response.Name.Should().Be("Test Recipe");
         response.Description.Should().Be("A test");
         response.ImageUrls.Should().Equal("https://example.com/image.jpg");
@@ -77,10 +77,9 @@ public class RecipesControllerTests
     [Fact]
     public async Task Get_NullName_ReturnsUntitled()
     {
-        var id = Guid.NewGuid();
         var recipe = TestRecipe with { Name = null };
         _service
-            .GetRecipeAsync(id, Arg.Any<CancellationToken>())
+            .GetRecipeAsync(recipe.Id, Arg.Any<CancellationToken>())
             .Returns(
                 (Func<NSubstitute.Core.CallInfo, Task<Domain.Recipe.Recipe?>>)(
                     _ => Task.FromResult<Domain.Recipe.Recipe?>(recipe)
@@ -88,7 +87,7 @@ public class RecipesControllerTests
             );
         var controller = new RecipesController(_service);
 
-        var result = await controller.Get(id, CancellationToken.None);
+        var result = await controller.Get(recipe.Id, CancellationToken.None);
 
         var ok = result.Should().BeOfType<OkObjectResult>().Subject;
         var response = ok.Value.Should().BeOfType<GetRecipeResponse>().Subject;
@@ -98,9 +97,8 @@ public class RecipesControllerTests
     [Fact]
     public async Task Get_ForwardsCancellationToken()
     {
-        var id = Guid.NewGuid();
         _service
-            .GetRecipeAsync(id, Arg.Any<CancellationToken>())
+            .GetRecipeAsync(TestRecipe.Id, Arg.Any<CancellationToken>())
             .Returns(
                 (Func<NSubstitute.Core.CallInfo, Task<Domain.Recipe.Recipe?>>)(
                     _ => Task.FromResult<Domain.Recipe.Recipe?>(TestRecipe)
@@ -109,8 +107,89 @@ public class RecipesControllerTests
         var controller = new RecipesController(_service);
         using var cts = new CancellationTokenSource();
 
-        await controller.Get(id, cts.Token);
+        await controller.Get(TestRecipe.Id, cts.Token);
 
-        await _service.Received(1).GetRecipeAsync(id, cts.Token);
+        await _service.Received(1).GetRecipeAsync(TestRecipe.Id, cts.Token);
+    }
+
+    [Fact]
+    public async Task Search_ValidQuery_Returns200WithResults()
+    {
+        var results = new List<Domain.Recipe.Recipe> { TestRecipe };
+        _service
+            .SearchRecipesAsync("pasta", Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(
+                (Func<NSubstitute.Core.CallInfo, Task<IReadOnlyList<Domain.Recipe.Recipe>>>)(
+                    _ => Task.FromResult<IReadOnlyList<Domain.Recipe.Recipe>>(results)
+                )
+            );
+        var controller = new RecipesController(_service);
+
+        var result = await controller.Search("pasta", 10, CancellationToken.None);
+
+        var ok = result.Should().BeOfType<OkObjectResult>().Subject;
+        ok.StatusCode.Should().Be(200);
+        var response = ok.Value.Should().BeOfType<SearchRecipesResponse>().Subject;
+        response.Query.Should().Be("pasta");
+        response.Results.Should().HaveCount(1);
+        response.Results[0].Id.Should().Be(TestRecipe.Id);
+        response.Results[0].Name.Should().Be("Test Recipe");
+    }
+
+    [Fact]
+    public async Task Search_EmptyQuery_Returns400()
+    {
+        var controller = new RecipesController(_service);
+
+        var result = await controller.Search("", 10, CancellationToken.None);
+
+        result.Should().BeOfType<ObjectResult>().Which.StatusCode.Should().Be(400);
+    }
+
+    [Fact]
+    public async Task Search_WhitespaceQuery_Returns400()
+    {
+        var controller = new RecipesController(_service);
+
+        var result = await controller.Search("   ", 10, CancellationToken.None);
+
+        result.Should().BeOfType<ObjectResult>().Which.StatusCode.Should().Be(400);
+    }
+
+    [Fact]
+    public async Task Search_ForwardsCancellationToken()
+    {
+        _service
+            .SearchRecipesAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(
+                (Func<NSubstitute.Core.CallInfo, Task<IReadOnlyList<Domain.Recipe.Recipe>>>)(
+                    _ => Task.FromResult<IReadOnlyList<Domain.Recipe.Recipe>>([])
+                )
+            );
+        var controller = new RecipesController(_service);
+        using var cts = new CancellationTokenSource();
+
+        await controller.Search("pasta", 10, cts.Token);
+
+        await _service.Received(1).SearchRecipesAsync("pasta", 10, cts.Token);
+    }
+
+    [Fact]
+    public async Task Search_ClampsLimitToRange()
+    {
+        _service
+            .SearchRecipesAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(
+                (Func<NSubstitute.Core.CallInfo, Task<IReadOnlyList<Domain.Recipe.Recipe>>>)(
+                    _ => Task.FromResult<IReadOnlyList<Domain.Recipe.Recipe>>([])
+                )
+            );
+        var controller = new RecipesController(_service);
+
+        await controller.Search("pasta", 0, CancellationToken.None);
+        await _service.Received(1).SearchRecipesAsync("pasta", 1, Arg.Any<CancellationToken>());
+
+        await controller.Search("pasta", 200, CancellationToken.None);
+        await _service.Received(1).SearchRecipesAsync("pasta", 100, Arg.Any<CancellationToken>());
     }
 }

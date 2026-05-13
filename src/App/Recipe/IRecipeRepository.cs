@@ -12,4 +12,12 @@ public interface IRecipeRepository
         string rawSchemaJson,
         CancellationToken cancellationToken = default
     );
+
+    Task<IReadOnlyList<DomainRecipe>> SearchAsync(
+        ReadOnlyMemory<float> queryEmbedding,
+        string model,
+        int dimensions,
+        int limit,
+        CancellationToken cancellationToken = default
+    );
 }
