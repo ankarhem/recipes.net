@@ -23,6 +23,9 @@ builder
     {
         options.JsonSerializerOptions.Converters.Add(new Iso8601DurationConverter());
         options.JsonSerializerOptions.Converters.Add(new NullableIso8601DurationConverter());
+        options.JsonSerializerOptions.Converters.Add(
+            new System.Text.Json.Serialization.JsonStringEnumConverter<CrawlRunStatus>()
+        );
     });
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();

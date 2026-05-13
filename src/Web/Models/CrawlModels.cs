@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
+using App.Crawler;
 
 namespace Web.Models;
 
@@ -28,7 +29,7 @@ public sealed record CrawlPausedResponse
     public required string WorkflowId { get; init; }
 
     [Description("The current status of the crawl.")]
-    public required string Status { get; init; }
+    public required CrawlRunStatus Status { get; init; }
 }
 
 public sealed record CrawlResumedResponse
@@ -37,20 +38,17 @@ public sealed record CrawlResumedResponse
     public required string WorkflowId { get; init; }
 
     [Description("The current status of the crawl.")]
-    public required string Status { get; init; }
+    public required CrawlRunStatus Status { get; init; }
 }
 
 public sealed record CrawlStatusResponse
 {
-    [Description("The current status: running, paused, or completed.")]
-    public required string Status { get; init; }
+    [Description("The current status of the crawl.")]
+    public required CrawlRunStatus Status { get; init; }
 
     [Description("Number of URLs that have been crawled.")]
     public required int UrlsCrawled { get; init; }
 
     [Description("Number of URLs queued for crawling.")]
     public required int UrlsQueued { get; init; }
-
-    [Description("Whether the crawl is currently paused.")]
-    public required bool IsPaused { get; init; }
 }

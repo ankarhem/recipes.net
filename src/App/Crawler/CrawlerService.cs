@@ -72,17 +72,39 @@ public sealed class CrawlerService(
             new() { Rpc = new() { CancellationToken = cancellationToken } }
         );
 
-        if (description.Status == WorkflowExecutionStatus.Completed)
+        var status = MapStatus(description.Status);
+
+        if (status != CrawlRunStatus.Running)
         {
             return new CrawlStatus
             {
-                Status = "completed",
-                UrlsCrawled = 0,
-                UrlsQueued = 0,
-                IsPaused = false,
+                Status = status,
+                State = new CrawlState { UrlsCrawled = 0, UrlsQueued = 0 },
             };
         }
 
-        return await handle.QueryAsync(wf => wf.GetStatus());
+        var state = await handle.QueryAsync(wf => wf.GetState());
+        var isPaused = await handle.QueryAsync(wf => wf.IsPaused);
+        return new CrawlStatus
+        {
+            Status = isPaused ? CrawlRunStatus.Paused : CrawlRunStatus.Running,
+            State = state,
+        };
     }
+
+#pragma warning disable CS8524 // Intentional: future Temporal enum values should surface as Unspecified
+    private static CrawlRunStatus MapStatus(WorkflowExecutionStatus status) =>
+        status switch
+        {
+            WorkflowExecutionStatus.Unspecified => CrawlRunStatus.Unspecified,
+            WorkflowExecutionStatus.Running => CrawlRunStatus.Running,
+            WorkflowExecutionStatus.Completed => CrawlRunStatus.Completed,
+            WorkflowExecutionStatus.Failed => CrawlRunStatus.Failed,
+            WorkflowExecutionStatus.Canceled => CrawlRunStatus.Canceled,
+            WorkflowExecutionStatus.Terminated => CrawlRunStatus.Terminated,
+            WorkflowExecutionStatus.ContinuedAsNew => CrawlRunStatus.ContinuedAsNew,
+            WorkflowExecutionStatus.TimedOut => CrawlRunStatus.TimedOut,
+            WorkflowExecutionStatus.Paused => CrawlRunStatus.Paused,
+        };
+#pragma warning restore CS8524
 }

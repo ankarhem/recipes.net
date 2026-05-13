@@ -142,7 +142,7 @@ public class CrawlsControllerTests
         ok.StatusCode.Should().Be(200);
         var response = ok.Value.Should().BeOfType<CrawlPausedResponse>().Subject;
         response.WorkflowId.Should().Be(TestWorkflowId.Value);
-        response.Status.Should().Be("paused");
+        response.Status.Should().Be(CrawlRunStatus.Paused);
     }
 
     [Fact]
@@ -171,7 +171,7 @@ public class CrawlsControllerTests
         ok.StatusCode.Should().Be(200);
         var response = ok.Value.Should().BeOfType<CrawlResumedResponse>().Subject;
         response.WorkflowId.Should().Be(TestWorkflowId.Value);
-        response.Status.Should().Be("running");
+        response.Status.Should().Be(CrawlRunStatus.Running);
     }
 
     [Fact]
@@ -194,10 +194,8 @@ public class CrawlsControllerTests
     {
         var status = new CrawlStatus
         {
-            Status = "running",
-            UrlsCrawled = 5,
-            UrlsQueued = 3,
-            IsPaused = false,
+            Status = CrawlRunStatus.Running,
+            State = new CrawlState { UrlsCrawled = 5, UrlsQueued = 3 },
         };
         _service
             .GetStatusAsync(Arg.Any<WorkflowId>(), Arg.Any<CancellationToken>())
@@ -211,10 +209,9 @@ public class CrawlsControllerTests
         var ok = result.Should().BeOfType<OkObjectResult>().Subject;
         ok.StatusCode.Should().Be(200);
         var response = ok.Value.Should().BeOfType<CrawlStatusResponse>().Subject;
-        response.Status.Should().Be("running");
+        response.Status.Should().Be(CrawlRunStatus.Running);
         response.UrlsCrawled.Should().Be(5);
         response.UrlsQueued.Should().Be(3);
-        response.IsPaused.Should().BeFalse();
     }
 
     [Fact]
@@ -228,10 +225,8 @@ public class CrawlsControllerTests
                         Task.FromResult(
                             new CrawlStatus
                             {
-                                Status = "running",
-                                UrlsCrawled = 0,
-                                UrlsQueued = 0,
-                                IsPaused = false,
+                                Status = CrawlRunStatus.Running,
+                                State = new CrawlState { UrlsCrawled = 0, UrlsQueued = 0 },
                             }
                         )
                 )

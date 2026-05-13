@@ -50,7 +50,13 @@ public class CrawlsController(ICrawlerService crawlerService) : ControllerBase
         var workflowId = new WorkflowId(id);
         await crawlerService.PauseAsync(workflowId, cancellationToken);
 
-        return Ok(new CrawlPausedResponse { WorkflowId = workflowId.Value, Status = "paused" });
+        return Ok(
+            new CrawlPausedResponse
+            {
+                WorkflowId = workflowId.Value,
+                Status = CrawlRunStatus.Paused,
+            }
+        );
     }
 
     /// <summary>
@@ -64,7 +70,13 @@ public class CrawlsController(ICrawlerService crawlerService) : ControllerBase
         var workflowId = new WorkflowId(id);
         await crawlerService.ResumeAsync(workflowId, cancellationToken);
 
-        return Ok(new CrawlResumedResponse { WorkflowId = workflowId.Value, Status = "running" });
+        return Ok(
+            new CrawlResumedResponse
+            {
+                WorkflowId = workflowId.Value,
+                Status = CrawlRunStatus.Running,
+            }
+        );
     }
 
     /// <summary>
@@ -82,9 +94,8 @@ public class CrawlsController(ICrawlerService crawlerService) : ControllerBase
             new CrawlStatusResponse
             {
                 Status = status.Status,
-                UrlsCrawled = status.UrlsCrawled,
-                UrlsQueued = status.UrlsQueued,
-                IsPaused = status.IsPaused,
+                UrlsCrawled = status.State.UrlsCrawled,
+                UrlsQueued = status.State.UrlsQueued,
             }
         );
     }

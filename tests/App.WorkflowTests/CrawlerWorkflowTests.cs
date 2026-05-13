@@ -370,13 +370,14 @@ public class CrawlerWorkflowTests
 
             // Signal pause before workflow completes
             await handle.SignalAsync(wf => wf.PauseAsync());
-            var isPaused = await handle.QueryAsync(wf => wf.IsPaused);
-            isPaused.Should().BeTrue();
+            var state = await handle.QueryAsync(wf => wf.GetState());
+            state.UrlsCrawled.Should().BeGreaterThanOrEqualTo(0);
+            state.UrlsQueued.Should().BeGreaterThanOrEqualTo(0);
+            (await handle.QueryAsync(wf => wf.IsPaused)).Should().BeTrue();
 
             // Signal resume
             await handle.SignalAsync(wf => wf.ResumeAsync());
-            isPaused = await handle.QueryAsync(wf => wf.IsPaused);
-            isPaused.Should().BeFalse();
+            (await handle.QueryAsync(wf => wf.IsPaused)).Should().BeFalse();
 
             // Let workflow complete
             await handle.GetResultAsync();
@@ -421,11 +422,10 @@ public class CrawlerWorkflowTests
 
             await handle.SignalAsync(wf => wf.PauseAsync());
 
-            var status = await handle.QueryAsync(wf => wf.GetStatus());
-
-            status.IsPaused.Should().BeTrue();
-            status.UrlsCrawled.Should().BeGreaterThanOrEqualTo(0);
-            status.UrlsQueued.Should().BeGreaterThanOrEqualTo(0);
+            var state = await handle.QueryAsync(wf => wf.GetState());
+            state.UrlsCrawled.Should().BeGreaterThanOrEqualTo(0);
+            state.UrlsQueued.Should().BeGreaterThanOrEqualTo(0);
+            (await handle.QueryAsync(wf => wf.IsPaused)).Should().BeTrue();
 
             await handle.SignalAsync(wf => wf.ResumeAsync());
             await handle.GetResultAsync();
