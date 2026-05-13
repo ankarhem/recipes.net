@@ -6,6 +6,7 @@ public sealed class AppSettings
     public OtelSettings Otel { get; init; } = new();
     public TemporalSettings Temporal { get; init; } = new();
     public OpenAiSettings OpenAi { get; init; } = new();
+    public JwtSettings Jwt { get; init; } = new();
 }
 
 public sealed class OtelSettings
@@ -24,4 +25,13 @@ public sealed class TemporalSettings
 public sealed class OpenAiSettings
 {
     public string ApiKey { get; init; } = "";
+}
+
+public sealed class JwtSettings
+{
+    public string Issuer { get; init; } = "recipes";
+    public string Audience { get; init; } = "recipes";
+    public string SigningKey { get; init; } = "";
+    public int AccessTokenMinutes { get; init; } = 15;
+    public int RefreshTokenDays { get; init; } = 7;
 }
