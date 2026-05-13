@@ -79,17 +79,40 @@ public sealed class CrawlerService(
             return new CrawlStatus
             {
                 Status = status,
-                State = new CrawlState { UrlsCrawled = 0, UrlsQueued = 0 },
+                State = new CrawlState
+                {
+                    UrlsCrawled = 0,
+                    UrlsQueued = 0,
+                    IsPaused = false,
+                },
             };
         }
 
-        var state = await handle.QueryAsync(wf => wf.GetState());
-        var isPaused = await handle.QueryAsync(wf => wf.IsPaused);
-        return new CrawlStatus
+        try
         {
-            Status = isPaused ? CrawlRunStatus.Paused : CrawlRunStatus.Running,
-            State = state,
-        };
+            var state = await handle.QueryAsync(wf => wf.GetState());
+            return new CrawlStatus
+            {
+                Status = state.IsPaused ? CrawlRunStatus.Paused : CrawlRunStatus.Running,
+                State = state,
+            };
+        }
+        catch (WorkflowQueryRejectedException)
+        {
+            var updated = await handle.DescribeAsync(
+                new() { Rpc = new() { CancellationToken = cancellationToken } }
+            );
+            return new CrawlStatus
+            {
+                Status = MapStatus(updated.Status),
+                State = new CrawlState
+                {
+                    UrlsCrawled = 0,
+                    UrlsQueued = 0,
+                    IsPaused = false,
+                },
+            };
+        }
     }
 
 #pragma warning disable CS8524 // Intentional: future Temporal enum values should surface as Unspecified

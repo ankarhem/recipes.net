@@ -195,7 +195,12 @@ public class CrawlsControllerTests
         var status = new CrawlStatus
         {
             Status = CrawlRunStatus.Running,
-            State = new CrawlState { UrlsCrawled = 5, UrlsQueued = 3 },
+            State = new CrawlState
+            {
+                UrlsCrawled = 5,
+                UrlsQueued = 3,
+                IsPaused = false,
+            },
         };
         _service
             .GetStatusAsync(Arg.Any<WorkflowId>(), Arg.Any<CancellationToken>())
@@ -226,7 +231,12 @@ public class CrawlsControllerTests
                             new CrawlStatus
                             {
                                 Status = CrawlRunStatus.Running,
-                                State = new CrawlState { UrlsCrawled = 0, UrlsQueued = 0 },
+                                State = new CrawlState
+                                {
+                                    UrlsCrawled = 0,
+                                    UrlsQueued = 0,
+                                    IsPaused = false,
+                                },
                             }
                         )
                 )

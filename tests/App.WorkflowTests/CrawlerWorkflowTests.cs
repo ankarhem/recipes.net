@@ -373,11 +373,12 @@ public class CrawlerWorkflowTests
             var state = await handle.QueryAsync(wf => wf.GetState());
             state.UrlsCrawled.Should().BeGreaterThanOrEqualTo(0);
             state.UrlsQueued.Should().BeGreaterThanOrEqualTo(0);
-            (await handle.QueryAsync(wf => wf.IsPaused)).Should().BeTrue();
+            state.IsPaused.Should().BeTrue();
 
             // Signal resume
             await handle.SignalAsync(wf => wf.ResumeAsync());
-            (await handle.QueryAsync(wf => wf.IsPaused)).Should().BeFalse();
+            state = await handle.QueryAsync(wf => wf.GetState());
+            state.IsPaused.Should().BeFalse();
 
             // Let workflow complete
             await handle.GetResultAsync();
@@ -425,7 +426,7 @@ public class CrawlerWorkflowTests
             var state = await handle.QueryAsync(wf => wf.GetState());
             state.UrlsCrawled.Should().BeGreaterThanOrEqualTo(0);
             state.UrlsQueued.Should().BeGreaterThanOrEqualTo(0);
-            (await handle.QueryAsync(wf => wf.IsPaused)).Should().BeTrue();
+            state.IsPaused.Should().BeTrue();
 
             await handle.SignalAsync(wf => wf.ResumeAsync());
             await handle.GetResultAsync();

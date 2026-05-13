@@ -36,11 +36,13 @@ public class CrawlerWorkflow
     public async Task ResumeAsync() => _isPaused = false;
 
     [WorkflowQuery]
-    public bool IsPaused => _isPaused;
-
-    [WorkflowQuery]
     public CrawlState GetState() =>
-        new() { UrlsCrawled = _visitedUrls.Count, UrlsQueued = _urlQueue.Count };
+        new()
+        {
+            UrlsCrawled = _visitedUrls.Count,
+            UrlsQueued = _urlQueue.Count,
+            IsPaused = _isPaused,
+        };
 
     private async Task HandlePageAsync(Uri url)
     {

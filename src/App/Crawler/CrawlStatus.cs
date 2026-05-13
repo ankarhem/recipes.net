@@ -17,6 +17,7 @@ public sealed record CrawlState
 {
     public required int UrlsCrawled { get; init; }
     public required int UrlsQueued { get; init; }
+    public required bool IsPaused { get; init; }
 }
 
 public sealed record CrawlStatus

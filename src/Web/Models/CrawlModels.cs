@@ -46,9 +46,13 @@ public sealed record CrawlStatusResponse
     [Description("The current status of the crawl.")]
     public required CrawlRunStatus Status { get; init; }
 
-    [Description("Number of URLs that have been crawled.")]
+    [Description(
+        "Number of URLs that have been crawled. Only meaningful when status is Running or Paused."
+    )]
     public required int UrlsCrawled { get; init; }
 
-    [Description("Number of URLs queued for crawling.")]
+    [Description(
+        "Number of URLs queued for crawling. Only meaningful when status is Running or Paused."
+    )]
     public required int UrlsQueued { get; init; }
 }
