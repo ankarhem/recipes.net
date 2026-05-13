@@ -6,9 +6,17 @@ namespace Web.Controllers;
 
 [ApiController]
 [Route("/api/v1/crawls")]
+[Tags("Crawls")]
 public class CrawlsController(ICrawlerService crawlerService) : ControllerBase
 {
+    /// <summary>
+    /// Start a new crawl from a target URL.
+    /// </summary>
+    /// <response code="202">Crawl started successfully.</response>
+    /// <response code="400">The request body is invalid or the URL scheme is not http/https.</response>
     [HttpPost]
+    [ProducesResponseType<CrawlStartedResponse>(StatusCodes.Status202Accepted)]
+    [ProducesResponseType<CrawlBadRequestResponse>(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Post(
         [FromBody] StartCrawlRequest request,
         CancellationToken cancellationToken
@@ -31,7 +39,12 @@ public class CrawlsController(ICrawlerService crawlerService) : ControllerBase
         return Accepted(new CrawlStartedResponse { WorkflowId = workflowId.Value });
     }
 
+    /// <summary>
+    /// Pause a running crawl.
+    /// </summary>
+    /// <response code="200">Crawl paused successfully.</response>
     [HttpPost("{id}/pause")]
+    [ProducesResponseType<CrawlPausedResponse>(StatusCodes.Status200OK)]
     public async Task<IActionResult> Pause(string id, CancellationToken cancellationToken)
     {
         var workflowId = new WorkflowId(id);
@@ -40,7 +53,12 @@ public class CrawlsController(ICrawlerService crawlerService) : ControllerBase
         return Ok(new CrawlPausedResponse { WorkflowId = workflowId.Value, Status = "paused" });
     }
 
+    /// <summary>
+    /// Resume a paused crawl.
+    /// </summary>
+    /// <response code="200">Crawl resumed successfully.</response>
     [HttpPost("{id}/resume")]
+    [ProducesResponseType<CrawlResumedResponse>(StatusCodes.Status200OK)]
     public async Task<IActionResult> Resume(string id, CancellationToken cancellationToken)
     {
         var workflowId = new WorkflowId(id);
@@ -49,7 +67,12 @@ public class CrawlsController(ICrawlerService crawlerService) : ControllerBase
         return Ok(new CrawlResumedResponse { WorkflowId = workflowId.Value, Status = "running" });
     }
 
+    /// <summary>
+    /// Get the current status of a crawl.
+    /// </summary>
+    /// <response code="200">Returns the crawl status.</response>
     [HttpGet("{id}")]
+    [ProducesResponseType<CrawlStatusResponse>(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetStatus(string id, CancellationToken cancellationToken)
     {
         var workflowId = new WorkflowId(id);
