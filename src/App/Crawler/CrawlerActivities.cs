@@ -65,10 +65,20 @@ public sealed class CrawlerActivities(
     }
 
     [Activity]
-    public async Task SaveRecipeAsync(DomainRecipe recipe, string sourceUrl, string rawSchemaJson)
+    public async Task<Guid> SaveRecipeAsync(
+        DomainRecipe recipe,
+        string sourceUrl,
+        string rawSchemaJson
+    )
     {
         var ct = ActivityExecutionContext.Current.CancellationToken;
-        await repository.SaveImportedAsync(recipe, sourceUrl, rawSchemaJson, ct);
-        logger.LogInformation("Saved recipe {Name} from {Url}", recipe.Name, sourceUrl);
+        var id = await repository.SaveImportedAsync(recipe, sourceUrl, rawSchemaJson, ct);
+        logger.LogInformation(
+            "Saved recipe {Name} from {Url} (Id: {Id})",
+            recipe.Name,
+            sourceUrl,
+            id
+        );
+        return id;
     }
 }

@@ -1,12 +1,17 @@
 using App.Crawler;
+using App.Embedding;
 using App.Recipe;
 using Infrastructure.Crawler;
+using Infrastructure.Embedding;
 using Infrastructure.Recipe;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.AI;
+using OpenAI;
 using OpenTelemetry.Exporter;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using Pgvector.EntityFrameworkCore;
 using Scalar.AspNetCore;
 using Temporalio.Client;
 using Temporalio.Extensions.Hosting;
@@ -33,6 +38,14 @@ builder.Services.AddHealthChecks().AddCheck<TemporalHealthCheck>("temporal", tag
 
 var appSettings = new AppSettings();
 builder.Configuration.Bind(appSettings);
+builder.Services.AddSingleton(appSettings);
+
+if (string.IsNullOrWhiteSpace(appSettings.OpenAi.ApiKey))
+{
+    throw new InvalidOperationException(
+        "OpenAI API key is required. Set the OpenAi:ApiKey configuration value."
+    );
+}
 
 builder
     .Services.AddOpenTelemetry()
@@ -119,10 +132,21 @@ builder.Services.AddTemporalClient(options =>
 });
 
 builder.Services.AddDbContext<RecipesDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("Recipes"))
+    options.UseNpgsql(builder.Configuration.GetConnectionString("Recipes"), o => o.UseVector())
 );
 
 builder.Services.AddScoped<IRecipeRepository, RecipeRepository>();
+builder.Services.AddSingleton<IRecipeEmbeddingTextBuilder, RecipeEmbeddingTextBuilder>();
+builder.Services.AddScoped<IRecipeEmbeddingRepository, RecipeEmbeddingRepository>();
+builder.Services.AddScoped<IEmbeddingService, EmbeddingService>();
+
+builder.Services.AddSingleton<IEmbeddingGenerator<string, Embedding<float>>>(sp =>
+{
+    var settings = sp.GetRequiredService<AppSettings>();
+    var client = new OpenAIClient(settings.OpenAi.ApiKey);
+    var embeddingClient = client.GetEmbeddingClient(EmbeddingModel.TextEmbedding3Small.OpenAiModelId());
+    return embeddingClient.AsIEmbeddingGenerator(EmbeddingModel.TextEmbedding3Small.Dimensions());
+});
 
 builder.Services.AddHttpClient<ICrawlerClient, CrawlerClient>();
 builder.Services.AddSingleton<IScraperService, ScraperService>();
@@ -135,6 +159,7 @@ builder.Services.AddSingleton<ICrawlerService>(sp => new CrawlerService(
 builder
     .Services.AddHostedTemporalWorker(appSettings.Temporal.TaskQueue)
     .AddTransientActivities<CrawlerActivities>()
+    .AddTransientActivities<EmbeddingActivities>()
     .AddWorkflow<CrawlerWorkflow>();
 
 var app = builder.Build();

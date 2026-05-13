@@ -1,10 +1,12 @@
 using App.Crawler;
+using App.Embedding;
 using App.Recipe;
 using AwesomeAssertions;
 using Infrastructure.Crawler;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Temporalio.Client;
+using Temporalio.Exceptions;
 using Temporalio.Testing;
 using Temporalio.Worker;
 using Xunit;
@@ -87,7 +89,7 @@ public class CrawlerWorkflowTests
                 Arg.Any<string>(),
                 Arg.Any<CancellationToken>()
             )
-            .Returns(Task.CompletedTask);
+            .Returns(Guid.NewGuid());
 
         var activities = new CrawlerActivities(
             client,
@@ -101,6 +103,7 @@ public class CrawlerWorkflowTests
             new TemporalWorkerOptions($"tq-{Guid.NewGuid()}")
                 .AddWorkflow<CrawlerWorkflow>()
                 .AddAllActivities(activities)
+                .AddAllActivities(CreateEmbeddingActivities())
         );
 
         await worker.ExecuteAsync(async () =>
@@ -142,6 +145,7 @@ public class CrawlerWorkflowTests
             new TemporalWorkerOptions($"tq-{Guid.NewGuid()}")
                 .AddWorkflow<CrawlerWorkflow>()
                 .AddAllActivities(activities)
+                .AddAllActivities(CreateEmbeddingActivities())
         );
 
         await worker.ExecuteAsync(async () =>
@@ -198,6 +202,7 @@ public class CrawlerWorkflowTests
             new TemporalWorkerOptions($"tq-{Guid.NewGuid()}")
                 .AddWorkflow<CrawlerWorkflow>()
                 .AddAllActivities(activities)
+                .AddAllActivities(CreateEmbeddingActivities())
         );
 
         await worker.ExecuteAsync(async () =>
@@ -248,6 +253,7 @@ public class CrawlerWorkflowTests
             new TemporalWorkerOptions($"tq-{Guid.NewGuid()}")
                 .AddWorkflow<CrawlerWorkflow>()
                 .AddAllActivities(activities)
+                .AddAllActivities(CreateEmbeddingActivities())
         );
 
         await worker.ExecuteAsync(async () =>
@@ -296,7 +302,7 @@ public class CrawlerWorkflowTests
                 Arg.Any<string>(),
                 Arg.Any<CancellationToken>()
             )
-            .Returns(Task.CompletedTask);
+            .Returns(Guid.NewGuid());
 
         var activities = new CrawlerActivities(
             client,
@@ -310,6 +316,7 @@ public class CrawlerWorkflowTests
             new TemporalWorkerOptions($"tq-{Guid.NewGuid()}")
                 .AddWorkflow<CrawlerWorkflow>()
                 .AddAllActivities(activities)
+                .AddAllActivities(CreateEmbeddingActivities())
         );
 
         await worker.ExecuteAsync(async () =>
@@ -324,6 +331,62 @@ public class CrawlerWorkflowTests
         // Recipe extracted from page with both recipe and links
         savedRecipes.Should().HaveCount(1);
         savedRecipes[0].Name.Should().Be("Chocolate Cake");
+    }
+
+    [Fact]
+    public async Task RunAsync_EmbeddingFailure_FailsWorkflow()
+    {
+        await using var env = await WorkflowEnvironment.StartTimeSkippingAsync();
+
+        var client = Substitute.For<ICrawlerClient>();
+        client
+            .GetPageAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
+            .Returns(
+                (Func<NSubstitute.Core.CallInfo, Task<string?>>)(
+                    _ => Task.FromResult<string?>(PageWithLinksAndRecipeHtml)
+                )
+            );
+
+        var repository = Substitute.For<IRecipeRepository>();
+        repository
+            .SaveImportedAsync(
+                Arg.Any<Domain.Recipe.Recipe>(),
+                Arg.Any<string>(),
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>()
+            )
+            .Returns(Guid.NewGuid());
+
+        var activities = new CrawlerActivities(
+            client,
+            new ScraperService(NullLogger<ScraperService>.Instance),
+            repository,
+            NullLogger<CrawlerActivities>.Instance
+        );
+
+        using var worker = new TemporalWorker(
+            env.Client,
+            new TemporalWorkerOptions($"tq-{Guid.NewGuid()}")
+                .AddWorkflow<CrawlerWorkflow>()
+                .AddAllActivities(activities)
+                .AddAllActivities(CreateEmbeddingActivities(new InvalidOperationException("boom")))
+        );
+
+        await worker.ExecuteAsync(async () =>
+        {
+            var act = async () =>
+            {
+                await env.Client.ExecuteWorkflowAsync(
+                    (CrawlerWorkflow wf) =>
+                        wf.RunAsync(new StartCrawlJobCommand { TargetUrl = SeedUrl }),
+                    new(id: $"wf-{Guid.NewGuid()}", taskQueue: worker.Options.TaskQueue!)
+                );
+            };
+
+            (await act.Should().ThrowAsync<WorkflowFailedException>())
+                .Which.InnerException.Should()
+                .BeOfType<ActivityFailureException>();
+        });
     }
 
     [Fact]
@@ -357,6 +420,7 @@ public class CrawlerWorkflowTests
             new TemporalWorkerOptions($"tq-{Guid.NewGuid()}")
                 .AddWorkflow<CrawlerWorkflow>()
                 .AddAllActivities(activities)
+                .AddAllActivities(CreateEmbeddingActivities())
         );
 
         await worker.ExecuteAsync(async () =>
@@ -411,6 +475,7 @@ public class CrawlerWorkflowTests
             new TemporalWorkerOptions($"tq-{Guid.NewGuid()}")
                 .AddWorkflow<CrawlerWorkflow>()
                 .AddAllActivities(activities)
+                .AddAllActivities(CreateEmbeddingActivities())
         );
 
         await worker.ExecuteAsync(async () =>
@@ -431,5 +496,34 @@ public class CrawlerWorkflowTests
             await handle.SignalAsync(wf => wf.ResumeAsync());
             await handle.GetResultAsync();
         });
+    }
+
+    private static EmbeddingActivities CreateEmbeddingActivities(Exception? exception = null)
+    {
+        var embeddingService = Substitute.For<IEmbeddingService>();
+        if (exception is null)
+        {
+            embeddingService
+                .EnsureRecipeEmbeddingAsync(
+                    default!,
+                    default!,
+                    default!,
+                    default
+                )
+                .ReturnsForAnyArgs(Task.CompletedTask);
+        }
+        else
+        {
+            embeddingService
+                .EnsureRecipeEmbeddingAsync(
+                    default!,
+                    default!,
+                    default!,
+                    default
+                )
+                .ReturnsForAnyArgs((Func<NSubstitute.Core.CallInfo, Task>)(_ => throw exception));
+        }
+
+        return new EmbeddingActivities(embeddingService, NullLogger<EmbeddingActivities>.Instance);
     }
 }

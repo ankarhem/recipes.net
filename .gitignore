@@ -8,6 +8,7 @@ publish/
 *.dll
 *.pdb
 *.exe
+*\\*
 
 ## Build results
 [Dd]ebug/

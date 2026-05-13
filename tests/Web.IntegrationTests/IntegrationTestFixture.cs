@@ -19,6 +19,7 @@ public class IntegrationTestFixture : WebApplicationFactory<Program>, IAsyncLife
     {
         var target = ((TemporalClient)_environment!.Client).Connection.Options.TargetHost!;
         builder.UseSetting("Temporal:Target", target);
+        builder.UseSetting("OpenAi:ApiKey", "test-key-for-integration-tests");
     }
 
     public new async Task DisposeAsync()

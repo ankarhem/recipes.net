@@ -1,3 +1,4 @@
+using App.Embedding;
 using App.Recipe;
 using Microsoft.Extensions.Logging;
 using Temporalio.Workflows;
@@ -25,7 +26,7 @@ public class CrawlerWorkflow
 
             var url = _urlQueue.Dequeue();
             await Workflow.DelayAsync(TimeSpan.FromMilliseconds(Workflow.Random.Next(300, 1000)));
-            await HandlePageAsync(url);
+            await HandlePageAsync(url, command);
         }
     }
 
@@ -44,7 +45,7 @@ public class CrawlerWorkflow
             IsPaused = _isPaused,
         };
 
-    private async Task HandlePageAsync(Uri url)
+    private async Task HandlePageAsync(Uri url, StartCrawlJobCommand command)
     {
         if (_visitedUrls.Contains(url))
         {
@@ -81,7 +82,7 @@ public class CrawlerWorkflow
 
         if (page.Recipe is not null)
         {
-            await Workflow.ExecuteActivityAsync(
+            var recipeId = await Workflow.ExecuteActivityAsync(
                 (CrawlerActivities a) =>
                     a.SaveRecipeAsync(page.Recipe, url.ToString(), page.RawJsonLd!),
                 new()
@@ -93,6 +94,26 @@ public class CrawlerWorkflow
                         BackoffCoefficient = 2.0F,
                         MaximumInterval = TimeSpan.FromSeconds(30),
                         MaximumAttempts = 3,
+                    },
+                }
+            );
+
+            await Workflow.ExecuteActivityAsync(
+                (EmbeddingActivities a) =>
+                    a.EnsureRecipeEmbeddingAsync(
+                        recipeId,
+                        page.Recipe,
+                        command.EmbeddingModel
+                    ),
+                new()
+                {
+                    StartToCloseTimeout = TimeSpan.FromSeconds(30),
+                    RetryPolicy = new()
+                    {
+                        InitialInterval = TimeSpan.FromSeconds(2),
+                        BackoffCoefficient = 2.0F,
+                        MaximumInterval = TimeSpan.FromSeconds(60),
+                        MaximumAttempts = 2,
                     },
                 }
             );
