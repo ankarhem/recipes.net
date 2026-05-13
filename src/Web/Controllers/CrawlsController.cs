@@ -5,7 +5,7 @@ using Web.Models;
 namespace Web.Controllers;
 
 [ApiController]
-[Route("/crawls")]
+[Route("/api/v1/crawls")]
 public class CrawlsController(ICrawlerService crawlerService) : ControllerBase
 {
     [HttpPost]
