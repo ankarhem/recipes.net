@@ -8,6 +8,8 @@ public sealed class RecipesDbContext(DbContextOptions<RecipesDbContext> options)
     : DbContext(options)
 {
     public DbSet<RecipeEntity> Recipes => Set<RecipeEntity>();
+    public DbSet<RecipeIngredientEntity> RecipeIngredients => Set<RecipeIngredientEntity>();
+    public DbSet<RecipeInstructionEntity> RecipeInstructions => Set<RecipeInstructionEntity>();
     public DbSet<RecipeEmbeddingEntity> RecipeEmbeddings => Set<RecipeEmbeddingEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -20,7 +22,32 @@ public sealed class RecipesDbContext(DbContextOptions<RecipesDbContext> options)
             entity.HasIndex(e => e.Url).IsUnique();
             entity.Property(e => e.Url).IsRequired();
             entity.Property(e => e.Name).IsRequired();
+            entity.Property(e => e.Description);
+            entity.Property(e => e.ImageUrlsJson).HasColumnType("jsonb").IsRequired();
             entity.Property(e => e.JsonLd).HasColumnType("jsonb").IsRequired();
+        });
+
+        modelBuilder.Entity<RecipeIngredientEntity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.RecipeId).IsRequired();
+            entity.Property(e => e.Text).IsRequired();
+            entity.HasIndex(e => e.RecipeId);
+            entity.HasOne(e => e.Recipe)
+                .WithMany(r => r.IngredientEntities)
+                .HasForeignKey(e => e.RecipeId);
+        });
+
+        modelBuilder.Entity<RecipeInstructionEntity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.RecipeId).IsRequired();
+            entity.Property(e => e.Position).IsRequired();
+            entity.Property(e => e.Text).IsRequired();
+            entity.HasIndex(e => e.RecipeId);
+            entity.HasOne(e => e.Recipe)
+                .WithMany(r => r.InstructionEntities)
+                .HasForeignKey(e => e.RecipeId);
         });
 
         modelBuilder.Entity<RecipeEmbeddingEntity>(entity =>

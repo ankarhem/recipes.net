@@ -136,6 +136,7 @@ builder.Services.AddDbContext<RecipesDbContext>(options =>
 );
 
 builder.Services.AddScoped<IRecipeRepository, RecipeRepository>();
+builder.Services.AddScoped<IRecipeService, App.Recipe.RecipeService>();
 builder.Services.AddSingleton<IRecipeEmbeddingTextBuilder, RecipeEmbeddingTextBuilder>();
 builder.Services.AddScoped<IRecipeEmbeddingRepository, RecipeEmbeddingRepository>();
 builder.Services.AddScoped<IEmbeddingService, EmbeddingService>();
