@@ -16,6 +16,7 @@ using Scalar.AspNetCore;
 using Temporalio.Client;
 using Temporalio.Extensions.Hosting;
 using Temporalio.Extensions.OpenTelemetry;
+using Web.ExceptionHandling;
 using Web.HealthChecks;
 using Web.Serialization;
 using Web.Settings;
@@ -33,6 +34,8 @@ builder
         );
     });
 builder.Services.AddOpenApi();
+builder.Services.AddHttpLogging();
+builder.Services.AddExceptionHandler<LoggingExceptionHandler>();
 builder.Services.AddProblemDetails();
 builder.Services.AddHealthChecks().AddCheck<TemporalHealthCheck>("temporal", tags: ["ready"]);
 
@@ -180,6 +183,7 @@ if (app.Environment.IsDevelopment())
     );
 }
 
+app.UseHttpLogging();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 app.MapHealthChecks("/health/ready");
