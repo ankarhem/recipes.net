@@ -29,6 +29,7 @@ public static class RecipeFactory
 
         return new DomainRecipe
         {
+            Id = Guid.NewGuid(),
             Name = schemaRecipe.Name.FirstOrDefault(),
             Description = schemaRecipe.Description.FirstOrDefault() as string,
             ImageUrls = imageUrls,
