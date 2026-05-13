@@ -6,6 +6,8 @@ public interface IRecipeRepository
 {
     Task<DomainRecipe?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 
+    Task<bool> ExistsAsync(Guid id, CancellationToken cancellationToken = default);
+
     Task<Guid> SaveImportedAsync(
         DomainRecipe recipe,
         string sourceUrl,

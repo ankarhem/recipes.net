@@ -22,6 +22,11 @@ public sealed class RecipeRepository(RecipesDbContext db) : IRecipeRepository
         return entity?.ToDomain();
     }
 
+    public async Task<bool> ExistsAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        return await db.Recipes.AnyAsync(r => r.Id == id, cancellationToken);
+    }
+
     public async Task<Guid> SaveImportedAsync(
         DomainRecipe recipe,
         string sourceUrl,

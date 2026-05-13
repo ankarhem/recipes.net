@@ -1,11 +1,15 @@
+using App.Auth;
 using App.Crawler;
 using App.Embedding;
 using App.Recipe;
+using Infrastructure.Auth;
 using Infrastructure.Crawler;
 using Infrastructure.Embedding;
 using Infrastructure.Recipe;
+using Infrastructure.User;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
+using Microsoft.AspNetCore.RateLimiting;
 using OpenAI;
 using OpenTelemetry.Exporter;
 using OpenTelemetry.Metrics;
@@ -16,12 +20,17 @@ using Scalar.AspNetCore;
 using Temporalio.Client;
 using Temporalio.Extensions.Hosting;
 using Temporalio.Extensions.OpenTelemetry;
+using System.Threading.RateLimiting;
 using Web.ExceptionHandling;
 using Web.HealthChecks;
 using Web.Serialization;
 using Web.Settings;
 
 var builder = WebApplication.CreateBuilder(args);
+
+var appSettings = new AppSettings();
+builder.Configuration.Bind(appSettings);
+builder.Services.AddSingleton(appSettings);
 
 builder
     .Services.AddControllers()
@@ -37,16 +46,75 @@ builder.Services.AddOpenApi();
 builder.Services.AddHttpLogging();
 builder.Services.AddExceptionHandler<LoggingExceptionHandler>();
 builder.Services.AddProblemDetails();
+builder
+    .Services.AddAuthentication(
+        Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme
+    )
+    .AddJwtBearer(options =>
+    {
+        options.MapInboundClaims = false;
+        options.IncludeErrorDetails = builder.Environment.IsDevelopment();
+        options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = appSettings.Jwt.Issuer,
+            ValidAudience = appSettings.Jwt.Audience,
+            IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(
+                System.Text.Encoding.UTF8.GetBytes(appSettings.Jwt.SigningKey)
+            ),
+            ClockSkew = TimeSpan.FromSeconds(30),
+        };
+    });
+builder.Services.AddAuthorization();
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddPolicy(
+        "auth",
+        context =>
+        {
+            var partitionKey = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            return RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey,
+                _ =>
+                    new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 10,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0,
+                    }
+            );
+        }
+    );
+});
 builder.Services.AddHealthChecks().AddCheck<TemporalHealthCheck>("temporal", tags: ["ready"]);
-
-var appSettings = new AppSettings();
-builder.Configuration.Bind(appSettings);
-builder.Services.AddSingleton(appSettings);
 
 if (string.IsNullOrWhiteSpace(appSettings.OpenAi.ApiKey))
 {
     throw new InvalidOperationException(
         "OpenAI API key is required. Set the OpenAi:ApiKey configuration value."
+    );
+}
+
+if (
+    string.IsNullOrWhiteSpace(appSettings.Jwt.SigningKey)
+    || System.Text.Encoding.UTF8.GetByteCount(appSettings.Jwt.SigningKey) < 32
+)
+{
+    throw new InvalidOperationException(
+        "Jwt:SigningKey must be at least 32 bytes. Set the Jwt:SigningKey configuration value."
+    );
+}
+
+if (
+    !builder.Environment.IsDevelopment()
+    && IsKnownNonProductionJwtSigningKey(appSettings.Jwt.SigningKey)
+)
+{
+    throw new InvalidOperationException(
+        "Jwt:SigningKey must not use a documented placeholder or development-only value outside Development."
     );
 }
 
@@ -143,6 +211,25 @@ builder.Services.AddScoped<IRecipeService, App.Recipe.RecipeService>();
 builder.Services.AddSingleton<IRecipeEmbeddingTextBuilder, RecipeEmbeddingTextBuilder>();
 builder.Services.AddScoped<IRecipeEmbeddingRepository, RecipeEmbeddingRepository>();
 builder.Services.AddScoped<IEmbeddingService, EmbeddingService>();
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
+builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+builder.Services.AddSingleton<IRefreshTokenGenerator, RefreshTokenGenerator>();
+builder.Services.AddSingleton<JwtAccessTokenOptions>(sp =>
+{
+    var settings = sp.GetRequiredService<AppSettings>();
+    return new JwtAccessTokenOptions
+    {
+        Issuer = settings.Jwt.Issuer,
+        Audience = settings.Jwt.Audience,
+        SigningKey = settings.Jwt.SigningKey,
+        AccessTokenMinutes = settings.Jwt.AccessTokenMinutes,
+    };
+});
+builder.Services.AddScoped<IAccessTokenService, JwtAccessTokenService>();
+builder.Services.AddScoped<IRecipeFavoriteRepository, RecipeFavoriteRepository>();
+builder.Services.AddScoped<IRecipeFavoriteService, RecipeFavoriteService>();
 
 builder.Services.AddSingleton<IEmbeddingGenerator<string, Embedding<float>>>(sp =>
 {
@@ -186,9 +273,16 @@ if (app.Environment.IsDevelopment())
 app.UseHttpLogging();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
+app.UseRateLimiter();
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapHealthChecks("/health/ready");
 app.MapControllers();
 
 app.Run();
+
+static bool IsKnownNonProductionJwtSigningKey(string signingKey) =>
+    signingKey is "replace-with-at-least-32-byte-secret"
+        or "development-only-jwt-signing-key-32-bytes-minimum";
 
 public partial class Program;
