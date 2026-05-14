@@ -67,9 +67,7 @@ public sealed class ScraperService(ILogger<ScraperService> logger) : IScraperSer
             .ToList();
     }
 
-    private static (Domain.Recipe.Recipe? Recipe, string? RawJsonLd) ExtractRecipe(
-        IDocument document
-    )
+    private (Domain.Recipe.Recipe? Recipe, string? RawJsonLd) ExtractRecipe(IDocument document)
     {
         var scriptNodes = document.QuerySelectorAll("script[type='application/ld+json']");
         foreach (var script in scriptNodes)
@@ -84,17 +82,20 @@ public sealed class ScraperService(ILogger<ScraperService> logger) : IScraperSer
         return (null, null);
     }
 
-    private static (Domain.Recipe.Recipe Recipe, string RawJsonLd)? TryDeserializeRecipe(
-        string jsonLd
-    )
+    private (Domain.Recipe.Recipe Recipe, string RawJsonLd)? TryDeserializeRecipe(string jsonLd)
     {
         try
         {
             using var doc = JsonDocument.Parse(jsonLd);
             return FindRecipe(doc.RootElement);
         }
-        catch
+        catch (Exception ex)
         {
+            logger.LogWarning(
+                ex,
+                "Failed to parse JSON-LD script ({ScriptLength} chars)",
+                jsonLd.Length
+            );
             return null;
         }
     }

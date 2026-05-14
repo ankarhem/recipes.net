@@ -16,11 +16,11 @@ public sealed class CrawlerService(
         CancellationToken cancellationToken = default
     )
     {
-        var workflowId = WorkflowId.Create(command.TargetUrl.Host);
+        var workflowId = WorkflowId.ForHost(command.TargetUrl.Host);
 
         try
         {
-            var handle = await client.StartWorkflowAsync(
+            await client.StartWorkflowAsync(
                 (CrawlerWorkflow wf) => wf.RunAsync(command),
                 new(id: workflowId.Value, taskQueue)
                 {
@@ -32,8 +32,11 @@ public sealed class CrawlerService(
         }
         catch (WorkflowAlreadyStartedException ex)
         {
-            logger.LogInformation(ex, "Crawler for {TargetUrl} already started", command.TargetUrl);
-
+            logger.LogInformation(
+                ex,
+                "Crawler for {TargetUrl} is already running",
+                command.TargetUrl
+            );
             throw;
         }
     }
@@ -115,11 +118,9 @@ public sealed class CrawlerService(
         }
     }
 
-#pragma warning disable CS8524 // Intentional: future Temporal enum values should surface as Unspecified
     private static CrawlRunStatus MapStatus(WorkflowExecutionStatus status) =>
         status switch
         {
-            WorkflowExecutionStatus.Unspecified => CrawlRunStatus.Unspecified,
             WorkflowExecutionStatus.Running => CrawlRunStatus.Running,
             WorkflowExecutionStatus.Completed => CrawlRunStatus.Completed,
             WorkflowExecutionStatus.Failed => CrawlRunStatus.Failed,
@@ -127,7 +128,6 @@ public sealed class CrawlerService(
             WorkflowExecutionStatus.Terminated => CrawlRunStatus.Terminated,
             WorkflowExecutionStatus.ContinuedAsNew => CrawlRunStatus.ContinuedAsNew,
             WorkflowExecutionStatus.TimedOut => CrawlRunStatus.TimedOut,
-            WorkflowExecutionStatus.Paused => CrawlRunStatus.Paused,
+            _ => CrawlRunStatus.Unspecified,
         };
-#pragma warning restore CS8524
 }

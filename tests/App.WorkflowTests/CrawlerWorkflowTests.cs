@@ -334,23 +334,33 @@ public class CrawlerWorkflowTests
     }
 
     [Fact]
-    public async Task RunAsync_EmbeddingFailure_FailsWorkflow()
+    public async Task RunAsync_EmbeddingFailure_LogsAndContinuesCrawl()
     {
         await using var env = await WorkflowEnvironment.StartTimeSkippingAsync();
 
+        var page2Url = new Uri("https://example.com/page2");
+        var fetchedUrls = new List<Uri>();
+        var savedRecipes = new List<Domain.Recipe.Recipe>();
+
         var client = Substitute.For<ICrawlerClient>();
         client
-            .GetPageAsync(Arg.Any<Uri>(), Arg.Any<CancellationToken>())
+            .GetPageAsync(Arg.Do<Uri>(url => fetchedUrls.Add(url)), Arg.Any<CancellationToken>())
             .Returns(
                 (Func<NSubstitute.Core.CallInfo, Task<string?>>)(
-                    _ => Task.FromResult<string?>(PageWithLinksAndRecipeHtml)
+                    call =>
+                    {
+                        var url = call.Arg<Uri>();
+                        return url == SeedUrl
+                            ? Task.FromResult<string?>(PageWithLinksAndRecipeHtml)
+                            : Task.FromResult<string?>(EmptyPageHtml);
+                    }
                 )
             );
 
         var repository = Substitute.For<IRecipeRepository>();
         repository
             .SaveImportedAsync(
-                Arg.Any<Domain.Recipe.Recipe>(),
+                Arg.Do<Domain.Recipe.Recipe>(r => savedRecipes.Add(r)),
                 Arg.Any<string>(),
                 Arg.Any<string>(),
                 Arg.Any<CancellationToken>()
@@ -374,19 +384,114 @@ public class CrawlerWorkflowTests
 
         await worker.ExecuteAsync(async () =>
         {
-            var act = async () =>
-            {
-                await env.Client.ExecuteWorkflowAsync(
-                    (CrawlerWorkflow wf) =>
-                        wf.RunAsync(new StartCrawlJobCommand { TargetUrl = SeedUrl }),
-                    new(id: $"wf-{Guid.NewGuid()}", taskQueue: worker.Options.TaskQueue!)
-                );
-            };
-
-            (await act.Should().ThrowAsync<WorkflowFailedException>())
-                .Which.InnerException.Should()
-                .BeOfType<ActivityFailureException>();
+            await env.Client.ExecuteWorkflowAsync(
+                (CrawlerWorkflow wf) =>
+                    wf.RunAsync(new StartCrawlJobCommand { TargetUrl = SeedUrl }),
+                new(id: $"wf-{Guid.NewGuid()}", taskQueue: worker.Options.TaskQueue!)
+            );
         });
+
+        savedRecipes.Should().HaveCount(1);
+        fetchedUrls.Should().Contain([SeedUrl, page2Url]);
+    }
+
+    [Fact]
+    public async Task RunAsync_MaxPagesReached_StopsCrawling()
+    {
+        await using var env = await WorkflowEnvironment.StartTimeSkippingAsync();
+
+        var fetchedUrls = new List<Uri>();
+        var client = Substitute.For<ICrawlerClient>();
+        client
+            .GetPageAsync(Arg.Do<Uri>(url => fetchedUrls.Add(url)), Arg.Any<CancellationToken>())
+            .Returns(
+                (Func<NSubstitute.Core.CallInfo, Task<string?>>)(
+                    _ => Task.FromResult<string?>(PageWithLinksHtml)
+                )
+            );
+
+        var activities = new CrawlerActivities(
+            client,
+            new ScraperService(NullLogger<ScraperService>.Instance),
+            Substitute.For<IRecipeRepository>(),
+            NullLogger<CrawlerActivities>.Instance
+        );
+
+        using var worker = new TemporalWorker(
+            env.Client,
+            new TemporalWorkerOptions($"tq-{Guid.NewGuid()}")
+                .AddWorkflow<CrawlerWorkflow>()
+                .AddAllActivities(activities)
+                .AddAllActivities(CreateEmbeddingActivities())
+        );
+
+        await worker.ExecuteAsync(async () =>
+        {
+            await env.Client.ExecuteWorkflowAsync(
+                (CrawlerWorkflow wf) =>
+                    wf.RunAsync(new StartCrawlJobCommand { TargetUrl = SeedUrl, MaxPages = 1 }),
+                new(id: $"wf-{Guid.NewGuid()}", taskQueue: worker.Options.TaskQueue!)
+            );
+        });
+
+        fetchedUrls.Should().HaveCount(1);
+        fetchedUrls.Should().ContainSingle().Which.Should().Be(SeedUrl);
+    }
+
+    [Fact]
+    public async Task RunAsync_FetchActivityFailure_LogsAndContinues()
+    {
+        await using var env = await WorkflowEnvironment.StartTimeSkippingAsync();
+
+        var page2Url = new Uri("https://example.com/page2");
+        var fetchedUrls = new List<Uri>();
+
+        var client = Substitute.For<ICrawlerClient>();
+        client
+            .GetPageAsync(Arg.Do<Uri>(url => fetchedUrls.Add(url)), Arg.Any<CancellationToken>())
+            .Returns(
+                (Func<NSubstitute.Core.CallInfo, Task<string?>>)(
+                    call =>
+                    {
+                        var url = call.Arg<Uri>();
+                        if (url == SeedUrl)
+                        {
+                            return Task.FromResult<string?>(PageWithLinksHtml);
+                        }
+                        throw new HttpRequestException(
+                            $"HTTP 404: not found",
+                            null,
+                            System.Net.HttpStatusCode.NotFound
+                        );
+                    }
+                )
+            );
+
+        var activities = new CrawlerActivities(
+            client,
+            new ScraperService(NullLogger<ScraperService>.Instance),
+            Substitute.For<IRecipeRepository>(),
+            NullLogger<CrawlerActivities>.Instance
+        );
+
+        using var worker = new TemporalWorker(
+            env.Client,
+            new TemporalWorkerOptions($"tq-{Guid.NewGuid()}")
+                .AddWorkflow<CrawlerWorkflow>()
+                .AddAllActivities(activities)
+                .AddAllActivities(CreateEmbeddingActivities())
+        );
+
+        await worker.ExecuteAsync(async () =>
+        {
+            await env.Client.ExecuteWorkflowAsync(
+                (CrawlerWorkflow wf) =>
+                    wf.RunAsync(new StartCrawlJobCommand { TargetUrl = SeedUrl }),
+                new(id: $"wf-{Guid.NewGuid()}", taskQueue: worker.Options.TaskQueue!)
+            );
+        });
+
+        fetchedUrls.Should().Contain([SeedUrl, page2Url]);
     }
 
     [Fact]

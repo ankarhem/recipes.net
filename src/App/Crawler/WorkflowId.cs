@@ -1,5 +1,3 @@
-using System.Globalization;
-
 namespace App.Crawler;
 
 public sealed record WorkflowId
@@ -24,14 +22,14 @@ public sealed record WorkflowId
         Value = value;
     }
 
-    public static WorkflowId Create(string host)
+    public static WorkflowId ForHost(string host)
     {
         if (string.IsNullOrWhiteSpace(host))
         {
             throw new ArgumentException("Host cannot be empty.", nameof(host));
         }
 
-        return new WorkflowId($"{host}-{NanoidDotNet.Nanoid.Generate(size: 10)}");
+        return new WorkflowId(host);
     }
 
     public override string ToString() => Value;

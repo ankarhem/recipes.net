@@ -87,6 +87,27 @@ builder.Services.AddRateLimiter(options =>
             );
         }
     );
+
+    options.AddPolicy(
+        "crawls",
+        context =>
+        {
+            var partitionKey =
+                context.User.FindFirst("sub")?.Value
+                ?? context.Connection.RemoteIpAddress?.ToString()
+                ?? "unknown";
+            return RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey,
+                _ =>
+                    new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 5,
+                        Window = TimeSpan.FromHours(1),
+                        QueueLimit = 0,
+                    }
+            );
+        }
+    );
 });
 builder.Services.AddHealthChecks().AddCheck<TemporalHealthCheck>("temporal", tags: ["ready"]);
 

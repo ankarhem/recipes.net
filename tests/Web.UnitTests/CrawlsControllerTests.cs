@@ -2,6 +2,8 @@ using App.Crawler;
 using AwesomeAssertions;
 using Microsoft.AspNetCore.Mvc;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
+using Temporalio.Exceptions;
 using Web.Controllers;
 using Web.Models;
 using Xunit;
@@ -11,7 +13,7 @@ namespace Web.Tests;
 public class CrawlsControllerTests
 {
     private readonly ICrawlerService _service = Substitute.For<ICrawlerService>();
-    private static readonly WorkflowId TestWorkflowId = new("example.com-VaK5fP3m9g");
+    private static readonly WorkflowId TestWorkflowId = new("example.com");
 
     [Fact]
     public async Task Post_ValidRequest_Returns202WithWorkflowId()
@@ -111,6 +113,30 @@ public class CrawlsControllerTests
         var result = await controller.Post(request, CancellationToken.None);
 
         result.Should().BeOfType<AcceptedResult>();
+    }
+
+    [Fact]
+    public async Task Post_DuplicateRunningCrawl_Returns409Conflict()
+    {
+        _service
+            .StartAsync(default!, default)
+            .ThrowsAsyncForAnyArgs(
+                new WorkflowAlreadyStartedException(
+                    "already running",
+                    "example.com",
+                    "CrawlerWorkflow",
+                    runId: "some-run-id"
+                )
+            );
+        var controller = new CrawlsController(_service);
+        var request = new StartCrawlRequest { TargetUrl = new Uri("https://example.com") };
+
+        var result = await controller.Post(request, CancellationToken.None);
+
+        var conflict = result.Should().BeOfType<ConflictObjectResult>().Subject;
+        conflict.StatusCode.Should().Be(409);
+        var response = conflict.Value.Should().BeOfType<CrawlBadRequestResponse>().Subject;
+        response.Error.Should().Contain("example.com");
     }
 
     [Fact]

@@ -7,21 +7,31 @@ namespace App.UnitTests;
 public class WorkflowIdTests
 {
     [Fact]
-    public void Create_ReturnsIdWithHostPrefix()
+    public void ForHost_ReturnsIdWithHostAsValue()
     {
-        var id = WorkflowId.Create("example.com");
+        var id = WorkflowId.ForHost("example.com");
 
-        id.Value.Should().StartWith("example.com-");
-        id.Value.Length.Should().Be("example.com-".Length + 10);
+        id.Value.Should().Be("example.com");
     }
 
     [Fact]
-    public void Create_GeneratesUniqueIds()
+    public void ForHost_SameHost_ReturnsIdenticalIds()
     {
-        var id1 = WorkflowId.Create("example.com");
-        var id2 = WorkflowId.Create("example.com");
+        var id1 = WorkflowId.ForHost("example.com");
+        var id2 = WorkflowId.ForHost("example.com");
 
-        id1.Value.Should().NotBe(id2.Value);
+        id1.Value.Should().Be(id2.Value);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void ForHost_ThrowsOnEmptyOrNull(string? host)
+    {
+        var act = () => WorkflowId.ForHost(host!);
+
+        act.Should().Throw<ArgumentException>();
     }
 
     [Fact]
