@@ -3,7 +3,7 @@ using AwesomeAssertions;
 using NSubstitute;
 using NSubstitute.Core;
 using Xunit;
-using DomainRecipeFavorite = Domain.User.RecipeFavorite;
+using DomainRecipeFavorite = Domain.Recipe.RecipeFavorite;
 
 namespace App.UnitTests;
 

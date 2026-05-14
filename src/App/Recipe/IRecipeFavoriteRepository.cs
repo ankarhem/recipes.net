@@ -1,4 +1,4 @@
-using DomainRecipeFavorite = Domain.User.RecipeFavorite;
+using DomainRecipeFavorite = Domain.Recipe.RecipeFavorite;
 
 namespace App.Recipe;
 

@@ -1,4 +1,4 @@
-using App.Auth;
+using App.Identity;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 using Web.Models;

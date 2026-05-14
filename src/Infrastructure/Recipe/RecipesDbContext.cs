@@ -1,10 +1,10 @@
-using Domain.User;
+using Domain.Identity;
 using Infrastructure.Embedding;
-using Infrastructure.User;
+using Infrastructure.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Pgvector.EntityFrameworkCore;
-using DomainUser = Domain.User.User;
+using DomainUser = Domain.Identity.User;
 
 namespace Infrastructure.Recipe;
 

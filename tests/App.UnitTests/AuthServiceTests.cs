@@ -1,12 +1,12 @@
-using App.Auth;
+using App.Identity;
 using AwesomeAssertions;
 using Domain;
-using Domain.User;
+using Domain.Identity;
 using NSubstitute;
 using NSubstitute.Core;
 using Xunit;
-using DomainUser = Domain.User.User;
-using DomainUserSession = Domain.User.UserSession;
+using DomainUser = Domain.Identity.User;
+using DomainUserSession = Domain.Identity.UserSession;
 
 namespace App.UnitTests;
 

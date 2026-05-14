@@ -1,6 +1,6 @@
 using AwesomeAssertions;
 using Xunit;
-using DomainUser = Domain.User.User;
+using DomainUser = Domain.Identity.User;
 
 namespace App.UnitTests;
 
@@ -12,8 +12,8 @@ public class UserAggregateTests
     public void Register_NewUser_CreatesUnverifiedUserWithCurrentTimestamps()
     {
         var clock = new FakeClock(TestNow);
-        var email = Domain.User.Email.Normalize(" Test@Example.COM ");
-        var passwordHash = Domain.User.PasswordHash.From("hashed-password");
+        var email = Domain.Identity.Email.Normalize(" Test@Example.COM ");
+        var passwordHash = Domain.Identity.PasswordHash.From("hashed-password");
 
         var user = DomainUser.Register(email, passwordHash, clock);
 
@@ -35,7 +35,7 @@ public class UserAggregateTests
         var clock = new FakeClock(TestNow);
         var user = CreateUser(clock);
         var expiresAt = clock.UtcNow.AddHours(1);
-        var hash = Domain.User.TokenHash.From("verification-hash");
+        var hash = Domain.Identity.TokenHash.From("verification-hash");
 
         clock.Advance(TimeSpan.FromMinutes(5));
         var token = user.IssueEmailVerificationToken(hash, expiresAt, clock);
@@ -54,8 +54,8 @@ public class UserAggregateTests
     {
         var clock = new FakeClock(TestNow);
         var user = CreateUser(clock);
-        var firstHash = Domain.User.TokenHash.From("first-verification-hash");
-        var secondHash = Domain.User.TokenHash.From("second-verification-hash");
+        var firstHash = Domain.Identity.TokenHash.From("first-verification-hash");
+        var secondHash = Domain.Identity.TokenHash.From("second-verification-hash");
 
         user.IssueEmailVerificationToken(firstHash, clock.UtcNow.AddHours(1), clock);
         clock.Advance(TimeSpan.FromMinutes(1));
@@ -70,8 +70,8 @@ public class UserAggregateTests
     {
         var clock = new FakeClock(TestNow);
         var user = CreateUser(clock);
-        var consumedHash = Domain.User.TokenHash.From("consumed-verification-hash");
-        var freshHash = Domain.User.TokenHash.From("fresh-verification-hash");
+        var consumedHash = Domain.Identity.TokenHash.From("consumed-verification-hash");
+        var freshHash = Domain.Identity.TokenHash.From("fresh-verification-hash");
         var consumedToken = user.IssueEmailVerificationToken(
             consumedHash,
             clock.UtcNow.AddHours(1),
@@ -94,7 +94,7 @@ public class UserAggregateTests
     {
         var clock = new FakeClock(TestNow);
         var user = CreateUser(clock);
-        var hash = Domain.User.TokenHash.From("verification-hash");
+        var hash = Domain.Identity.TokenHash.From("verification-hash");
         var token = user.IssueEmailVerificationToken(hash, clock.UtcNow.AddHours(1), clock);
 
         clock.Advance(TimeSpan.FromMinutes(2));
@@ -115,13 +115,13 @@ public class UserAggregateTests
         var user = CreateUser(clock);
         var originalUpdatedAt = user.UpdatedAt;
         user.IssueEmailVerificationToken(
-            Domain.User.TokenHash.From("verification-hash"),
+            Domain.Identity.TokenHash.From("verification-hash"),
             clock.UtcNow.AddHours(1),
             clock
         );
 
         clock.Advance(TimeSpan.FromMinutes(1));
-        var verified = user.VerifyEmail(Domain.User.TokenHash.From("unknown-hash"), clock);
+        var verified = user.VerifyEmail(Domain.Identity.TokenHash.From("unknown-hash"), clock);
 
         verified.Should().BeFalse();
         user.EmailVerified.Should().BeFalse();
@@ -136,7 +136,7 @@ public class UserAggregateTests
     {
         var clock = new FakeClock(TestNow);
         var user = CreateUser(clock);
-        var hash = Domain.User.TokenHash.From("verification-hash");
+        var hash = Domain.Identity.TokenHash.From("verification-hash");
         user.IssueEmailVerificationToken(hash, clock.UtcNow.AddHours(1), clock);
         user.VerifyEmail(hash, clock).Should().BeTrue();
         var firstVerifiedAt = user.EmailVerifiedAt;
@@ -154,7 +154,7 @@ public class UserAggregateTests
     {
         var clock = new FakeClock(TestNow);
         var user = CreateUser(clock);
-        var hash = Domain.User.TokenHash.From("verification-hash");
+        var hash = Domain.Identity.TokenHash.From("verification-hash");
         var token = user.IssueEmailVerificationToken(hash, clock.UtcNow.AddMinutes(1), clock);
 
         clock.Advance(TimeSpan.FromMinutes(2));
@@ -171,8 +171,8 @@ public class UserAggregateTests
     {
         var clock = new FakeClock(TestNow);
         var user = CreateUser(clock);
-        var firstHash = Domain.User.TokenHash.From("first-reset-hash");
-        var secondHash = Domain.User.TokenHash.From("second-reset-hash");
+        var firstHash = Domain.Identity.TokenHash.From("first-reset-hash");
+        var secondHash = Domain.Identity.TokenHash.From("second-reset-hash");
 
         user.IssuePasswordResetToken(firstHash, clock.UtcNow.AddHours(1), clock);
         clock.Advance(TimeSpan.FromMinutes(1));
@@ -187,14 +187,14 @@ public class UserAggregateTests
     {
         var clock = new FakeClock(TestNow);
         var user = CreateUser(clock);
-        var consumedHash = Domain.User.TokenHash.From("consumed-reset-hash");
-        var freshHash = Domain.User.TokenHash.From("fresh-reset-hash");
+        var consumedHash = Domain.Identity.TokenHash.From("consumed-reset-hash");
+        var freshHash = Domain.Identity.TokenHash.From("fresh-reset-hash");
         var consumedToken = user.IssuePasswordResetToken(
             consumedHash,
             clock.UtcNow.AddHours(1),
             clock
         );
-        user.ResetPassword(consumedHash, Domain.User.PasswordHash.From("changed-hash"), clock)
+        user.ResetPassword(consumedHash, Domain.Identity.PasswordHash.From("changed-hash"), clock)
             .Should()
             .BeTrue();
 
@@ -214,8 +214,8 @@ public class UserAggregateTests
         var clock = new FakeClock(TestNow);
         var user = CreateUser(clock);
         var oldPasswordHash = user.PasswordHash;
-        var newPasswordHash = Domain.User.PasswordHash.From("new-hash");
-        var resetHash = Domain.User.TokenHash.From("reset-hash");
+        var newPasswordHash = Domain.Identity.PasswordHash.From("new-hash");
+        var resetHash = Domain.Identity.TokenHash.From("reset-hash");
         var token = user.IssuePasswordResetToken(resetHash, clock.UtcNow.AddHours(1), clock);
 
         clock.Advance(TimeSpan.FromMinutes(3));
@@ -237,15 +237,15 @@ public class UserAggregateTests
         var originalPasswordHash = user.PasswordHash;
         var originalUpdatedAt = user.UpdatedAt;
         user.IssuePasswordResetToken(
-            Domain.User.TokenHash.From("reset-hash"),
+            Domain.Identity.TokenHash.From("reset-hash"),
             clock.UtcNow.AddHours(1),
             clock
         );
 
         clock.Advance(TimeSpan.FromMinutes(1));
         var reset = user.ResetPassword(
-            Domain.User.TokenHash.From("unknown-hash"),
-            Domain.User.PasswordHash.From("new-hash"),
+            Domain.Identity.TokenHash.From("unknown-hash"),
+            Domain.Identity.PasswordHash.From("new-hash"),
             clock
         );
 
@@ -260,13 +260,13 @@ public class UserAggregateTests
     {
         var clock = new FakeClock(TestNow);
         var user = CreateUser(clock);
-        var hash = Domain.User.TokenHash.From("reset-hash");
-        var firstNewHash = Domain.User.PasswordHash.From("first-new-hash");
+        var hash = Domain.Identity.TokenHash.From("reset-hash");
+        var firstNewHash = Domain.Identity.PasswordHash.From("first-new-hash");
         user.IssuePasswordResetToken(hash, clock.UtcNow.AddHours(1), clock);
         user.ResetPassword(hash, firstNewHash, clock).Should().BeTrue();
 
         clock.Advance(TimeSpan.FromMinutes(1));
-        var resetAgain = user.ResetPassword(hash, Domain.User.PasswordHash.From("second-new-hash"), clock);
+        var resetAgain = user.ResetPassword(hash, Domain.Identity.PasswordHash.From("second-new-hash"), clock);
 
         resetAgain.Should().BeFalse();
         user.PasswordHash.Should().Be(firstNewHash);
@@ -278,11 +278,11 @@ public class UserAggregateTests
         var clock = new FakeClock(TestNow);
         var user = CreateUser(clock);
         var originalPasswordHash = user.PasswordHash;
-        var hash = Domain.User.TokenHash.From("reset-hash");
+        var hash = Domain.Identity.TokenHash.From("reset-hash");
         var token = user.IssuePasswordResetToken(hash, clock.UtcNow.AddMinutes(1), clock);
 
         clock.Advance(TimeSpan.FromMinutes(2));
-        var reset = user.ResetPassword(hash, Domain.User.PasswordHash.From("new-hash"), clock);
+        var reset = user.ResetPassword(hash, Domain.Identity.PasswordHash.From("new-hash"), clock);
 
         reset.Should().BeFalse();
         user.PasswordHash.Should().Be(originalPasswordHash);
@@ -291,8 +291,8 @@ public class UserAggregateTests
 
     private static DomainUser CreateUser(FakeClock clock) =>
         DomainUser.Register(
-            Domain.User.Email.Normalize("test@example.com"),
-            Domain.User.PasswordHash.From("hashed-password"),
+            Domain.Identity.Email.Normalize("test@example.com"),
+            Domain.Identity.PasswordHash.From("hashed-password"),
             clock
         );
 }

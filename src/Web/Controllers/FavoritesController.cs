@@ -1,7 +1,7 @@
 using App.Recipe;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Web.Auth;
+using Web.Identity;
 using Web.Models;
 
 namespace Web.Controllers;

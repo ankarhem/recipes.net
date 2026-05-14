@@ -152,7 +152,7 @@ namespace Infrastructure.Migrations
                     b.ToTable("RecipeInstructions");
                 });
 
-            modelBuilder.Entity("Infrastructure.User.EmailVerificationTokenEntity", b =>
+            modelBuilder.Entity("Infrastructure.Identity.EmailVerificationTokenEntity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -184,7 +184,7 @@ namespace Infrastructure.Migrations
                     b.ToTable("EmailVerificationTokens");
                 });
 
-            modelBuilder.Entity("Infrastructure.User.PasswordResetTokenEntity", b =>
+            modelBuilder.Entity("Infrastructure.Identity.PasswordResetTokenEntity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -216,7 +216,7 @@ namespace Infrastructure.Migrations
                     b.ToTable("PasswordResetTokens");
                 });
 
-            modelBuilder.Entity("Infrastructure.User.RecipeFavoriteEntity", b =>
+            modelBuilder.Entity("Infrastructure.Recipe.RecipeFavoriteEntity", b =>
                 {
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
@@ -234,7 +234,7 @@ namespace Infrastructure.Migrations
                     b.ToTable("RecipeFavorites");
                 });
 
-            modelBuilder.Entity("Infrastructure.User.RefreshTokenEntity", b =>
+            modelBuilder.Entity("Infrastructure.Identity.RefreshTokenEntity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -266,7 +266,7 @@ namespace Infrastructure.Migrations
                     b.ToTable("RefreshTokens");
                 });
 
-            modelBuilder.Entity("Infrastructure.User.UserEntity", b =>
+            modelBuilder.Entity("Infrastructure.Identity.UserEntity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -335,9 +335,9 @@ namespace Infrastructure.Migrations
                     b.Navigation("Recipe");
                 });
 
-            modelBuilder.Entity("Infrastructure.User.EmailVerificationTokenEntity", b =>
+            modelBuilder.Entity("Infrastructure.Identity.EmailVerificationTokenEntity", b =>
                 {
-                    b.HasOne("Infrastructure.User.UserEntity", "User")
+                    b.HasOne("Infrastructure.Identity.UserEntity", "User")
                         .WithMany("EmailVerificationTokenEntities")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -346,9 +346,9 @@ namespace Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("Infrastructure.User.PasswordResetTokenEntity", b =>
+            modelBuilder.Entity("Infrastructure.Identity.PasswordResetTokenEntity", b =>
                 {
-                    b.HasOne("Infrastructure.User.UserEntity", "User")
+                    b.HasOne("Infrastructure.Identity.UserEntity", "User")
                         .WithMany("PasswordResetTokenEntities")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -357,7 +357,7 @@ namespace Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("Infrastructure.User.RecipeFavoriteEntity", b =>
+            modelBuilder.Entity("Infrastructure.Recipe.RecipeFavoriteEntity", b =>
                 {
                     b.HasOne("Infrastructure.Recipe.RecipeEntity", "Recipe")
                         .WithMany()
@@ -365,7 +365,7 @@ namespace Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Infrastructure.User.UserEntity", "User")
+                    b.HasOne("Infrastructure.Identity.UserEntity", "User")
                         .WithMany("FavoriteEntities")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -376,9 +376,9 @@ namespace Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("Infrastructure.User.RefreshTokenEntity", b =>
+            modelBuilder.Entity("Infrastructure.Identity.RefreshTokenEntity", b =>
                 {
-                    b.HasOne("Infrastructure.User.UserEntity", "User")
+                    b.HasOne("Infrastructure.Identity.UserEntity", "User")
                         .WithMany("RefreshTokenEntities")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -394,7 +394,7 @@ namespace Infrastructure.Migrations
                     b.Navigation("InstructionEntities");
                 });
 
-            modelBuilder.Entity("Infrastructure.User.UserEntity", b =>
+            modelBuilder.Entity("Infrastructure.Identity.UserEntity", b =>
                 {
                     b.Navigation("EmailVerificationTokenEntities");
 

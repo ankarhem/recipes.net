@@ -10,6 +10,12 @@ The app is not deployed and is under active developement.
 ## Controller → Service → Repository
 Controllers depend on App-layer services (`IRecipeService`), never repositories. Services live in App and delegate to `IRecipeRepository`. Repository interfaces return domain types (`DomainRecipe?`), not DTOs or entity types.
 
+## Bounded contexts
+`Identity` (User aggregate + UserSession aggregate + tokens), `Recipe` (Recipe aggregate + RecipeFavorite + embeddings), `Crawler`, `Embedding`. Each context spans Domain / App / Infrastructure layers with matching namespaces. Cross-context dependencies go through interfaces, not direct type references.
+
+## Aggregate roots own behavior
+Behavior (validation, state transitions, invariants) lives on the aggregate, not on the service. Repositories load and save aggregates only; they do not expose child-table CRUD. App-layer services hash inputs, load the aggregate, call its behavior, and `SaveChanges`. Optimistic concurrency conflicts surface as `ConcurrencyConflictException` and translate to `AuthResult.Invalid*` variants.
+
 ## Entity design for child collections
 Queryable data (ingredients, instructions) gets its own table with FK. Pure value objects that are always fetched together (image URLs) stay as jsonb on the parent entity. Never deserialize Schema.NET JSON-LD on reads — denormalize at save time into proper columns/tables.
 

@@ -11,11 +11,11 @@ public class UserSessionAggregateTests
     public void Issue_CreatesActiveSessionWithCorrectTimestamps()
     {
         var clock = new FakeClock(TestNow);
-        var userId = Domain.User.UserId.New();
-        var hash = Domain.User.TokenHash.From("session-hash");
+        var userId = Domain.Identity.UserId.New();
+        var hash = Domain.Identity.TokenHash.From("session-hash");
         var expiresAt = clock.UtcNow.AddDays(7);
 
-        var session = Domain.User.UserSession.Issue(userId, hash, expiresAt, clock);
+        var session = Domain.Identity.UserSession.Issue(userId, hash, expiresAt, clock);
 
         session.Id.Should().NotBeEmpty();
         session.UserId.Should().Be(userId);
@@ -107,13 +107,13 @@ public class UserSessionAggregateTests
         session.IsExpired(clock.UtcNow).Should().BeTrue();
     }
 
-    private static Domain.User.UserSession CreateSession(
+    private static Domain.Identity.UserSession CreateSession(
         FakeClock clock,
         DateTimeOffset? expiresAt = null
     ) =>
-        Domain.User.UserSession.Issue(
-            Domain.User.UserId.New(),
-            Domain.User.TokenHash.From("session-hash"),
+        Domain.Identity.UserSession.Issue(
+            Domain.Identity.UserId.New(),
+            Domain.Identity.TokenHash.From("session-hash"),
             expiresAt ?? clock.UtcNow.AddDays(7),
             clock
         );

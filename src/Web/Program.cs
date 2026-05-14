@@ -1,12 +1,11 @@
-using App.Auth;
+using App.Identity;
 using App.Crawler;
 using App.Embedding;
 using App.Recipe;
-using Infrastructure.Auth;
+using Infrastructure.Identity;
 using Infrastructure.Crawler;
 using Infrastructure.Embedding;
 using Infrastructure.Recipe;
-using Infrastructure.User;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.AspNetCore.RateLimiting;
@@ -234,10 +233,10 @@ builder.Services.AddScoped<IEmailWorkflowStarter>(sp =>
     return new EmailWorkflowStarter(client, settings.Temporal.TaskQueue);
 });
 builder.Services.AddSingleton<IEmailService, EmailService>();
-builder.Services.AddSingleton<Infrastructure.Auth.EmailSettings>(sp =>
+builder.Services.AddSingleton<Infrastructure.Identity.EmailSettings>(sp =>
 {
     var settings = sp.GetRequiredService<AppSettings>();
-    return new Infrastructure.Auth.EmailSettings
+    return new Infrastructure.Identity.EmailSettings
     {
         SmtpHost = settings.Email.SmtpHost,
         SmtpPort = settings.Email.SmtpPort,

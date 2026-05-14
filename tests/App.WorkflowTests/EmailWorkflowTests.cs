@@ -1,4 +1,4 @@
-using App.Auth;
+using App.Identity;
 using AwesomeAssertions;
 using NSubstitute;
 using NSubstitute.Core;
