@@ -6,6 +6,7 @@ namespace App.Identity;
 public sealed class AuthService(
     IUserRepository users,
     IUserSessionRepository userSessions,
+    IUnitOfWork unitOfWork,
     IPasswordHasher passwordHasher,
     IAccessTokenService accessTokenService,
     ISecureTokenGenerator secureTokenGenerator,
@@ -95,13 +96,15 @@ public sealed class AuthService(
             {
                 await userSessions.RevokeAllForUserAsync(session.UserId, cancellationToken);
             }
-
             return new AuthResult.InvalidRefreshToken();
         }
+
+        await using var uow = await unitOfWork.BeginAsync(cancellationToken);
 
         if (!session.TryRevoke(clock))
         {
             await userSessions.RevokeAllForUserAsync(session.UserId, cancellationToken);
+            await uow.CommitAsync(cancellationToken);
             return new AuthResult.InvalidRefreshToken();
         }
 
@@ -112,24 +115,28 @@ public sealed class AuthService(
         catch (ConcurrencyConflictException)
         {
             await userSessions.RevokeAllForUserAsync(session.UserId, cancellationToken);
+            await uow.CommitAsync(cancellationToken);
             return new AuthResult.InvalidRefreshToken();
         }
 
         var user = await users.GetByIdAsync(session.UserId, cancellationToken);
         if (user is null)
         {
+            await uow.CommitAsync(cancellationToken);
             return new AuthResult.InvalidRefreshToken();
         }
 
         if (!user.EmailVerified)
         {
             await userSessions.RevokeAllForUserAsync(user.Id, cancellationToken);
+            await uow.CommitAsync(cancellationToken);
             return new AuthResult.EmailNotVerified();
         }
 
-        var accessToken = accessTokenService.Generate(user.Id.Value, user.Email.Value);
         var newRefreshToken = await IssueSessionAsync(user.Id, cancellationToken);
+        await uow.CommitAsync(cancellationToken);
 
+        var accessToken = accessTokenService.Generate(user.Id.Value, user.Email.Value);
         return new AuthResult.Success(user.Id.Value, user.Email.Value, accessToken, newRefreshToken);
     }
 
@@ -156,6 +163,8 @@ public sealed class AuthService(
             return new AuthResult.VerificationTokenExpired();
         }
 
+        await using var uow = await unitOfWork.BeginAsync(cancellationToken);
+
         if (!user.VerifyEmail(hash, clock))
         {
             return new AuthResult.InvalidVerificationToken();
@@ -170,9 +179,10 @@ public sealed class AuthService(
             return new AuthResult.InvalidVerificationToken();
         }
 
-        var accessToken = accessTokenService.Generate(user.Id.Value, user.Email.Value);
         var refreshToken = await IssueSessionAsync(user.Id, cancellationToken);
+        await uow.CommitAsync(cancellationToken);
 
+        var accessToken = accessTokenService.Generate(user.Id.Value, user.Email.Value);
         return new AuthResult.Success(user.Id.Value, user.Email.Value, accessToken, refreshToken);
     }
 
@@ -257,6 +267,9 @@ public sealed class AuthService(
         }
 
         var newPasswordHash = PasswordHash.From(passwordHasher.Hash(newPassword));
+
+        await using var uow = await unitOfWork.BeginAsync(cancellationToken);
+
         if (!user.ResetPassword(hash, newPasswordHash, clock))
         {
             return new AuthResult.InvalidResetToken();
@@ -272,10 +285,10 @@ public sealed class AuthService(
         }
 
         await userSessions.RevokeAllForUserAsync(user.Id, cancellationToken);
+        var refreshToken = await IssueSessionAsync(user.Id, cancellationToken);
+        await uow.CommitAsync(cancellationToken);
 
         var accessToken = accessTokenService.Generate(user.Id.Value, user.Email.Value);
-        var refreshToken = await IssueSessionAsync(user.Id, cancellationToken);
-
         return new AuthResult.Success(user.Id.Value, user.Email.Value, accessToken, refreshToken);
     }
 

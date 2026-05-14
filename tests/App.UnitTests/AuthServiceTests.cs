@@ -189,6 +189,7 @@ public class AuthServiceTests
                 Arg.Any<CancellationToken>()
             );
         ctx.AccessTokenService.Received(1).Generate(user.Id.Value, user.Email.Value);
+        await ctx.UnitOfWorkScope.Received(1).CommitAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -281,6 +282,7 @@ public class AuthServiceTests
         await ctx.UserRepository.DidNotReceiveWithAnyArgs().GetByIdAsync(default, default);
         ctx.AccessTokenService.DidNotReceiveWithAnyArgs().Generate(default, default!);
         ctx.SecureTokenGenerator.DidNotReceiveWithAnyArgs().Generate();
+        await ctx.UnitOfWorkScope.Received(1).CommitAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -338,6 +340,7 @@ public class AuthServiceTests
                 ),
                 Arg.Any<CancellationToken>()
             );
+        await ctx.UnitOfWorkScope.Received(1).CommitAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -418,6 +421,7 @@ public class AuthServiceTests
         await ctx.UserSessionRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
         ctx.AccessTokenService.DidNotReceiveWithAnyArgs().Generate(default, default!);
         ctx.SecureTokenGenerator.DidNotReceiveWithAnyArgs().Generate();
+        await ctx.UnitOfWorkScope.DidNotReceiveWithAnyArgs().CommitAsync(default);
     }
 
     [Fact]
@@ -579,6 +583,7 @@ public class AuthServiceTests
                 ),
                 Arg.Any<CancellationToken>()
             );
+        await ctx.UnitOfWorkScope.Received(1).CommitAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -673,6 +678,7 @@ public class AuthServiceTests
         await ctx.UserSessionRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
         ctx.AccessTokenService.DidNotReceiveWithAnyArgs().Generate(default, default!);
         ctx.SecureTokenGenerator.DidNotReceiveWithAnyArgs().Generate();
+        await ctx.UnitOfWorkScope.DidNotReceiveWithAnyArgs().CommitAsync(default);
     }
 
     private static SutContext CreateSut(FakeClock? clock = null)
@@ -680,6 +686,13 @@ public class AuthServiceTests
         clock ??= new FakeClock(TestNow);
         var userRepository = Substitute.For<IUserRepository>();
         var userSessionRepository = Substitute.For<IUserSessionRepository>();
+        var unitOfWork = Substitute.For<IUnitOfWork>();
+        var unitOfWorkScope = Substitute.For<IUnitOfWorkScope>();
+        unitOfWork
+            .BeginAsync(default)
+            .ReturnsForAnyArgs(
+                (Func<CallInfo, Task<IUnitOfWorkScope>>)(_ => Task.FromResult(unitOfWorkScope))
+            );
         var passwordHasher = Substitute.For<IPasswordHasher>();
         var accessTokenService = Substitute.For<IAccessTokenService>();
         var secureTokenGenerator = Substitute.For<ISecureTokenGenerator>();
@@ -755,6 +768,7 @@ public class AuthServiceTests
         var sut = new AuthService(
             userRepository,
             userSessionRepository,
+            unitOfWork,
             passwordHasher,
             accessTokenService,
             secureTokenGenerator,
@@ -766,6 +780,8 @@ public class AuthServiceTests
             sut,
             userRepository,
             userSessionRepository,
+            unitOfWork,
+            unitOfWorkScope,
             passwordHasher,
             accessTokenService,
             secureTokenGenerator,
@@ -847,6 +863,8 @@ public class AuthServiceTests
         AuthService Sut,
         IUserRepository UserRepository,
         IUserSessionRepository UserSessionRepository,
+        IUnitOfWork UnitOfWork,
+        IUnitOfWorkScope UnitOfWorkScope,
         IPasswordHasher PasswordHasher,
         IAccessTokenService AccessTokenService,
         ISecureTokenGenerator SecureTokenGenerator,
