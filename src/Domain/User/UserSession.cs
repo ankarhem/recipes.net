@@ -1,21 +1,23 @@
 namespace Domain.User;
 
-public sealed class PasswordResetToken
+public sealed class UserSession
 {
     public Guid Id { get; private set; }
     public UserId UserId { get; private set; }
     public TokenHash TokenHash { get; private set; } = null!;
     public DateTimeOffset ExpiresAt { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
-    public DateTimeOffset? ConsumedAt { get; private set; }
+    public DateTimeOffset? RevokedAt { get; private set; }
 
-    public bool IsConsumed => ConsumedAt is not null;
+    public bool IsRevoked => RevokedAt is not null;
 
     public bool IsExpired(DateTimeOffset now) => ExpiresAt < now;
 
-    private PasswordResetToken() { }
+    public bool IsActive(DateTimeOffset now) => !IsRevoked && !IsExpired(now);
 
-    public static PasswordResetToken Issue(
+    private UserSession() { }
+
+    public static UserSession Issue(
         UserId userId,
         TokenHash hash,
         DateTimeOffset expiresAt,
@@ -30,8 +32,14 @@ public sealed class PasswordResetToken
             CreatedAt = clock.UtcNow,
         };
 
-    internal void Consume(IClock clock)
+    public bool TryRevoke(IClock clock)
     {
-        ConsumedAt = clock.UtcNow;
+        if (IsRevoked)
+        {
+            return false;
+        }
+
+        RevokedAt = clock.UtcNow;
+        return true;
     }
 }

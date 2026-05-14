@@ -1,4 +1,5 @@
 using App.Auth;
+using Domain.User;
 using Infrastructure.Recipe;
 using Microsoft.EntityFrameworkCore;
 using DomainUser = Domain.User.User;
@@ -7,77 +8,54 @@ namespace Infrastructure.User;
 
 public sealed class UserRepository(RecipesDbContext db) : IUserRepository
 {
-    public async Task<DomainUser?> GetByEmailAsync(
-        string email,
-        CancellationToken cancellationToken = default
-    )
-    {
-        var entity = await db.Users.AsNoTracking()
-            .SingleOrDefaultAsync(u => u.Email == email, cancellationToken);
+    public Task<DomainUser?> GetByIdAsync(UserId id, CancellationToken cancellationToken = default) =>
+        QueryWithTokens().SingleOrDefaultAsync(u => u.Id == id, cancellationToken);
 
-        return entity?.ToDomain();
+    public Task<DomainUser?> GetByEmailAsync(
+        Email email,
+        CancellationToken cancellationToken = default
+    ) => QueryWithTokens().SingleOrDefaultAsync(u => u.Email == email, cancellationToken);
+
+    public Task<DomainUser?> GetByEmailVerificationTokenHashAsync(
+        TokenHash hash,
+        CancellationToken cancellationToken = default
+    ) =>
+        QueryWithTokens()
+            .SingleOrDefaultAsync(
+                u => u.EmailVerificationTokens.Any(t => t.TokenHash == hash),
+                cancellationToken
+            );
+
+    public Task<DomainUser?> GetByPasswordResetTokenHashAsync(
+        TokenHash hash,
+        CancellationToken cancellationToken = default
+    ) =>
+        QueryWithTokens()
+            .SingleOrDefaultAsync(
+                u => u.PasswordResetTokens.Any(t => t.TokenHash == hash),
+                cancellationToken
+            );
+
+    public async Task AddAsync(DomainUser user, CancellationToken cancellationToken = default)
+    {
+        await db.Users.AddAsync(user, cancellationToken);
     }
 
-    public async Task<DomainUser> CreateAsync(
-        string email,
-        string passwordHash,
-        CancellationToken cancellationToken = default
-    )
+    public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
     {
-        var now = DateTimeOffset.UtcNow;
-        var entity = new UserEntity
+        try
         {
-            Id = Guid.NewGuid(),
-            Email = email,
-            PasswordHash = passwordHash,
-            EmailVerified = false,
-            CreatedAt = now,
-            UpdatedAt = now,
-        };
-
-        await db.Users.AddAsync(entity, cancellationToken);
-        await db.SaveChangesAsync(cancellationToken);
-
-        return entity.ToDomain();
-    }
-
-    public async Task<DomainUser?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
-    {
-        var entity = await db.Users.AsNoTracking()
-            .SingleOrDefaultAsync(u => u.Id == id, cancellationToken);
-
-        return entity?.ToDomain();
-    }
-
-    public async Task MarkEmailVerifiedAsync(
-        Guid userId,
-        CancellationToken cancellationToken = default
-    )
-    {
-        await db.Users
-            .Where(u => u.Id == userId)
-            .ExecuteUpdateAsync(
-                setter => setter
-                    .SetProperty(u => u.EmailVerified, true)
-                    .SetProperty(u => u.EmailVerifiedAt, DateTimeOffset.UtcNow)
-                    .SetProperty(u => u.UpdatedAt, DateTimeOffset.UtcNow),
-                cancellationToken
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            throw new ConcurrencyConflictException(
+                "Concurrent modification detected on user aggregate.",
+                ex
             );
+        }
     }
 
-    public async Task UpdatePasswordHashAsync(
-        Guid userId,
-        string newPasswordHash,
-        CancellationToken cancellationToken = default
-    )
-    {
-        await db.Users
-            .Where(u => u.Id == userId)
-            .ExecuteUpdateAsync(
-                setter => setter
-                    .SetProperty(u => u.PasswordHash, newPasswordHash)
-                    .SetProperty(u => u.UpdatedAt, DateTimeOffset.UtcNow),
-                cancellationToken
-            );
-    }
+    private IQueryable<DomainUser> QueryWithTokens() =>
+        db.Users.Include(u => u.EmailVerificationTokens).Include(u => u.PasswordResetTokens);
 }

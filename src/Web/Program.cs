@@ -222,12 +222,11 @@ builder.Services.AddSingleton<IRecipeEmbeddingTextBuilder, RecipeEmbeddingTextBu
 builder.Services.AddScoped<IRecipeEmbeddingRepository, RecipeEmbeddingRepository>();
 builder.Services.AddScoped<IEmbeddingService, EmbeddingService>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IUserSessionRepository, UserSessionRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
-builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 builder.Services.AddSingleton<ISecureTokenGenerator, SecureTokenGenerator>();
-builder.Services.AddScoped<IEmailVerificationTokenRepository, EmailVerificationTokenRepository>();
-builder.Services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepository>();
+builder.Services.AddSingleton<Domain.IClock, Infrastructure.SystemClock>();
 builder.Services.AddScoped<IEmailWorkflowStarter>(sp =>
 {
     var client = sp.GetRequiredService<ITemporalClient>();

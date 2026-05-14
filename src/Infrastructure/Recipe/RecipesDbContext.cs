@@ -1,7 +1,10 @@
+using Domain.User;
 using Infrastructure.Embedding;
 using Infrastructure.User;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Pgvector.EntityFrameworkCore;
+using DomainUser = Domain.User.User;
 
 namespace Infrastructure.Recipe;
 
@@ -12,11 +15,11 @@ public sealed class RecipesDbContext(DbContextOptions<RecipesDbContext> options)
     public DbSet<RecipeIngredientEntity> RecipeIngredients => Set<RecipeIngredientEntity>();
     public DbSet<RecipeInstructionEntity> RecipeInstructions => Set<RecipeInstructionEntity>();
     public DbSet<RecipeEmbeddingEntity> RecipeEmbeddings => Set<RecipeEmbeddingEntity>();
-    public DbSet<UserEntity> Users => Set<UserEntity>();
+    public DbSet<DomainUser> Users => Set<DomainUser>();
     public DbSet<RecipeFavoriteEntity> RecipeFavorites => Set<RecipeFavoriteEntity>();
-    public DbSet<RefreshTokenEntity> RefreshTokens => Set<RefreshTokenEntity>();
-    public DbSet<EmailVerificationTokenEntity> EmailVerificationTokens => Set<EmailVerificationTokenEntity>();
-    public DbSet<PasswordResetTokenEntity> PasswordResetTokens => Set<PasswordResetTokenEntity>();
+    public DbSet<UserSession> UserSessions => Set<UserSession>();
+    public DbSet<EmailVerificationToken> EmailVerificationTokens => Set<EmailVerificationToken>();
+    public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -39,7 +42,8 @@ public sealed class RecipesDbContext(DbContextOptions<RecipesDbContext> options)
             entity.Property(e => e.RecipeId).IsRequired();
             entity.Property(e => e.Text).IsRequired();
             entity.HasIndex(e => e.RecipeId);
-            entity.HasOne(e => e.Recipe)
+            entity
+                .HasOne(e => e.Recipe)
                 .WithMany(r => r.IngredientEntities)
                 .HasForeignKey(e => e.RecipeId);
         });
@@ -51,7 +55,8 @@ public sealed class RecipesDbContext(DbContextOptions<RecipesDbContext> options)
             entity.Property(e => e.Position).IsRequired();
             entity.Property(e => e.Text).IsRequired();
             entity.HasIndex(e => e.RecipeId);
-            entity.HasOne(e => e.Recipe)
+            entity
+                .HasOne(e => e.Recipe)
                 .WithMany(r => r.InstructionEntities)
                 .HasForeignKey(e => e.RecipeId);
         });
@@ -77,16 +82,104 @@ public sealed class RecipesDbContext(DbContextOptions<RecipesDbContext> options)
             entity.HasOne(e => e.Recipe).WithMany().HasForeignKey(e => e.RecipeId);
         });
 
-        modelBuilder.Entity<UserEntity>(entity =>
+        modelBuilder.Entity<DomainUser>(entity =>
         {
+            entity.ToTable("Users");
             entity.HasKey(e => e.Id);
-            entity.Property(e => e.Email).IsRequired();
-            entity.Property(e => e.PasswordHash).IsRequired();
+            entity.Property(e => e.Id).HasConversion(v => v.Value, v => new UserId(v));
+            entity
+                .Property(e => e.Email)
+                .HasConversion(v => v.Value, v => Email.Normalize(v))
+                .IsRequired();
+            entity
+                .Property(e => e.PasswordHash)
+                .HasConversion(v => v.Value, v => PasswordHash.From(v))
+                .IsRequired();
             entity.Property(e => e.EmailVerified).HasDefaultValue(false);
             entity.Property(e => e.EmailVerifiedAt);
             entity.Property(e => e.CreatedAt).IsRequired();
             entity.Property(e => e.UpdatedAt).IsRequired();
             entity.HasIndex(e => e.Email).IsUnique();
+
+            entity
+                .HasMany(e => e.EmailVerificationTokens)
+                .WithOne()
+                .HasForeignKey(t => t.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity
+                .Metadata.FindNavigation(nameof(DomainUser.EmailVerificationTokens))!
+                .SetPropertyAccessMode(PropertyAccessMode.Field);
+
+            entity
+                .HasMany(e => e.PasswordResetTokens)
+                .WithOne()
+                .HasForeignKey(t => t.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity
+                .Metadata.FindNavigation(nameof(DomainUser.PasswordResetTokens))!
+                .SetPropertyAccessMode(PropertyAccessMode.Field);
+        });
+
+        modelBuilder.Entity<EmailVerificationToken>(entity =>
+        {
+            entity.ToTable("EmailVerificationTokens");
+            entity.HasKey(e => e.Id);
+            entity
+                .Property(e => e.UserId)
+                .HasConversion(v => v.Value, v => new UserId(v))
+                .IsRequired();
+            entity
+                .Property(e => e.TokenHash)
+                .HasConversion(v => v.Value, v => TokenHash.From(v))
+                .IsRequired();
+            entity.Property(e => e.ExpiresAt).IsRequired();
+            entity.Property(e => e.CreatedAt).IsRequired();
+            entity.Property(e => e.ConsumedAt).IsConcurrencyToken();
+            entity.HasIndex(e => e.TokenHash).IsUnique();
+            entity.HasIndex(e => e.UserId);
+        });
+
+        modelBuilder.Entity<PasswordResetToken>(entity =>
+        {
+            entity.ToTable("PasswordResetTokens");
+            entity.HasKey(e => e.Id);
+            entity
+                .Property(e => e.UserId)
+                .HasConversion(v => v.Value, v => new UserId(v))
+                .IsRequired();
+            entity
+                .Property(e => e.TokenHash)
+                .HasConversion(v => v.Value, v => TokenHash.From(v))
+                .IsRequired();
+            entity.Property(e => e.ExpiresAt).IsRequired();
+            entity.Property(e => e.CreatedAt).IsRequired();
+            entity.Property(e => e.ConsumedAt).IsConcurrencyToken();
+            entity.HasIndex(e => e.TokenHash).IsUnique();
+            entity.HasIndex(e => e.UserId);
+        });
+
+        modelBuilder.Entity<UserSession>(entity =>
+        {
+            entity.ToTable("RefreshTokens");
+            entity.HasKey(e => e.Id);
+            entity
+                .Property(e => e.UserId)
+                .HasConversion(v => v.Value, v => new UserId(v))
+                .IsRequired();
+            entity
+                .Property(e => e.TokenHash)
+                .HasConversion(v => v.Value, v => TokenHash.From(v))
+                .IsRequired();
+            entity.Property(e => e.ExpiresAt).IsRequired();
+            entity.Property(e => e.CreatedAt).IsRequired();
+            entity.Property(e => e.RevokedAt).IsConcurrencyToken();
+            entity.HasIndex(e => e.TokenHash).IsUnique();
+            entity.HasIndex(e => e.UserId);
+            entity
+                .HasOne<DomainUser>()
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<RecipeFavoriteEntity>(entity =>
@@ -94,52 +187,12 @@ public sealed class RecipesDbContext(DbContextOptions<RecipesDbContext> options)
             entity.HasKey(e => new { e.UserId, e.RecipeId });
             entity.Property(e => e.CreatedAt).IsRequired();
             entity.HasIndex(e => e.RecipeId);
-            entity.HasOne(e => e.User)
-                .WithMany(u => u.FavoriteEntities)
-                .HasForeignKey(e => e.UserId);
+            entity
+                .HasOne<DomainUser>()
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
             entity.HasOne(e => e.Recipe).WithMany().HasForeignKey(e => e.RecipeId);
-        });
-
-        modelBuilder.Entity<RefreshTokenEntity>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.UserId).IsRequired();
-            entity.Property(e => e.TokenHash).IsRequired();
-            entity.Property(e => e.ExpiresAt).IsRequired();
-            entity.Property(e => e.CreatedAt).IsRequired();
-            entity.HasIndex(e => e.TokenHash).IsUnique();
-            entity.HasIndex(e => e.UserId);
-            entity.HasOne(e => e.User)
-                .WithMany(u => u.RefreshTokenEntities)
-                .HasForeignKey(e => e.UserId);
-        });
-
-        modelBuilder.Entity<EmailVerificationTokenEntity>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.UserId).IsRequired();
-            entity.Property(e => e.TokenHash).IsRequired();
-            entity.Property(e => e.ExpiresAt).IsRequired();
-            entity.Property(e => e.CreatedAt).IsRequired();
-            entity.HasIndex(e => e.TokenHash).IsUnique();
-            entity.HasIndex(e => e.UserId);
-            entity.HasOne(e => e.User)
-                .WithMany(u => u.EmailVerificationTokenEntities)
-                .HasForeignKey(e => e.UserId);
-        });
-
-        modelBuilder.Entity<PasswordResetTokenEntity>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.UserId).IsRequired();
-            entity.Property(e => e.TokenHash).IsRequired();
-            entity.Property(e => e.ExpiresAt).IsRequired();
-            entity.Property(e => e.CreatedAt).IsRequired();
-            entity.HasIndex(e => e.TokenHash).IsUnique();
-            entity.HasIndex(e => e.UserId);
-            entity.HasOne(e => e.User)
-                .WithMany(u => u.PasswordResetTokenEntities)
-                .HasForeignKey(e => e.UserId);
         });
     }
 }

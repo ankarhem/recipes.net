@@ -1,14 +1,16 @@
+using Domain;
+using Domain.User;
+
 namespace App.Auth;
 
 public sealed class AuthService(
-    IUserRepository userRepository,
+    IUserRepository users,
+    IUserSessionRepository userSessions,
     IPasswordHasher passwordHasher,
     IAccessTokenService accessTokenService,
-    IRefreshTokenRepository refreshTokenRepository,
     ISecureTokenGenerator secureTokenGenerator,
-    IEmailVerificationTokenRepository emailVerificationTokenRepository,
-    IPasswordResetTokenRepository passwordResetTokenRepository,
-    IEmailWorkflowStarter emailWorkflowStarter
+    IEmailWorkflowStarter emailWorkflowStarter,
+    IClock clock
 ) : IAuthService
 {
     private const int RefreshTokenDays = 7;
@@ -21,24 +23,31 @@ public sealed class AuthService(
         CancellationToken cancellationToken = default
     )
     {
-        var normalizedEmail = email.Trim().ToLowerInvariant();
-        var existing = await userRepository.GetByEmailAsync(normalizedEmail, cancellationToken);
+        var normalizedEmail = Email.Normalize(email);
+        var existing = await users.GetByEmailAsync(normalizedEmail, cancellationToken);
         if (existing is not null)
         {
             return new AuthResult.EmailAlreadyRegistered();
         }
 
-        var hash = passwordHasher.Hash(password);
-        var user = await userRepository.CreateAsync(normalizedEmail, hash, cancellationToken);
-        var verificationToken = await StoreVerificationTokenAsync(user.Id, cancellationToken);
+        var passwordHash = PasswordHash.From(passwordHasher.Hash(password));
+        var user = User.Register(normalizedEmail, passwordHash, clock);
+
+        var (plainToken, hashedToken) = secureTokenGenerator.Generate();
+        var expiresAt = clock.UtcNow.AddHours(EmailVerificationHours);
+        user.IssueEmailVerificationToken(TokenHash.From(hashedToken), expiresAt, clock);
+
+        await users.AddAsync(user, cancellationToken);
+        await users.SaveChangesAsync(cancellationToken);
+
         await emailWorkflowStarter.StartVerificationWorkflowAsync(
-            user.Id,
-            user.Email,
-            verificationToken,
+            user.Id.Value,
+            user.Email.Value,
+            plainToken,
             cancellationToken
         );
 
-        return new AuthResult.RegistrationPending(user.Id, user.Email);
+        return new AuthResult.RegistrationPending(user.Id.Value, user.Email.Value);
     }
 
     public async Task<AuthResult> LoginAsync(
@@ -47,8 +56,8 @@ public sealed class AuthService(
         CancellationToken cancellationToken = default
     )
     {
-        var normalizedEmail = email.Trim().ToLowerInvariant();
-        var user = await userRepository.GetByEmailAsync(normalizedEmail, cancellationToken);
+        var normalizedEmail = Email.Normalize(email);
+        var user = await users.GetByEmailAsync(normalizedEmail, cancellationToken);
 
         if (user is null)
         {
@@ -56,7 +65,7 @@ public sealed class AuthService(
             return new AuthResult.InvalidCredentials();
         }
 
-        if (!passwordHasher.Verify(password, user.PasswordHash))
+        if (!passwordHasher.Verify(password, user.PasswordHash.Value))
         {
             return new AuthResult.InvalidCredentials();
         }
@@ -66,10 +75,10 @@ public sealed class AuthService(
             return new AuthResult.EmailNotVerified();
         }
 
-        var accessToken = accessTokenService.Generate(user.Id, user.Email);
-        var refreshToken = await StoreRefreshTokenAsync(user.Id, cancellationToken);
+        var accessToken = accessTokenService.Generate(user.Id.Value, user.Email.Value);
+        var refreshToken = await IssueSessionAsync(user.Id, cancellationToken);
 
-        return new AuthResult.Success(user.Id, user.Email, accessToken, refreshToken);
+        return new AuthResult.Success(user.Id.Value, user.Email.Value, accessToken, refreshToken);
     }
 
     public async Task<AuthResult> RefreshAsync(
@@ -77,27 +86,36 @@ public sealed class AuthService(
         CancellationToken cancellationToken = default
     )
     {
-        var tokenHash = TokenHasher.Hash(refreshToken);
-        var stored = await refreshTokenRepository.FindByTokenHashAsync(tokenHash, cancellationToken);
+        var hash = TokenHash.From(TokenHasher.Hash(refreshToken));
+        var session = await userSessions.GetByTokenHashAsync(hash, cancellationToken);
 
-        if (stored is null || stored.IsExpired || stored.IsRevoked)
+        if (session is null || !session.IsActive(clock.UtcNow))
         {
-            if (stored is not null)
+            if (session is not null)
             {
-                await refreshTokenRepository.RevokeAllForUserAsync(stored.UserId, cancellationToken);
+                await userSessions.RevokeAllForUserAsync(session.UserId, cancellationToken);
             }
 
             return new AuthResult.InvalidRefreshToken();
         }
 
-        var revoked = await refreshTokenRepository.TryRevokeAsync(stored.Id, cancellationToken);
-        if (!revoked)
+        if (!session.TryRevoke(clock))
         {
-            await refreshTokenRepository.RevokeAllForUserAsync(stored.UserId, cancellationToken);
+            await userSessions.RevokeAllForUserAsync(session.UserId, cancellationToken);
             return new AuthResult.InvalidRefreshToken();
         }
 
-        var user = await userRepository.GetByIdAsync(stored.UserId, cancellationToken);
+        try
+        {
+            await userSessions.SaveChangesAsync(cancellationToken);
+        }
+        catch (ConcurrencyConflictException)
+        {
+            await userSessions.RevokeAllForUserAsync(session.UserId, cancellationToken);
+            return new AuthResult.InvalidRefreshToken();
+        }
+
+        var user = await users.GetByIdAsync(session.UserId, cancellationToken);
         if (user is null)
         {
             return new AuthResult.InvalidRefreshToken();
@@ -105,14 +123,14 @@ public sealed class AuthService(
 
         if (!user.EmailVerified)
         {
-            await refreshTokenRepository.RevokeAllForUserAsync(user.Id, cancellationToken);
+            await userSessions.RevokeAllForUserAsync(user.Id, cancellationToken);
             return new AuthResult.EmailNotVerified();
         }
 
-        var accessToken = accessTokenService.Generate(user.Id, user.Email);
-        var newRefreshToken = await StoreRefreshTokenAsync(user.Id, cancellationToken);
+        var accessToken = accessTokenService.Generate(user.Id.Value, user.Email.Value);
+        var newRefreshToken = await IssueSessionAsync(user.Id, cancellationToken);
 
-        return new AuthResult.Success(user.Id, user.Email, accessToken, newRefreshToken);
+        return new AuthResult.Success(user.Id.Value, user.Email.Value, accessToken, newRefreshToken);
     }
 
     public async Task<AuthResult> VerifyEmailAsync(
@@ -120,48 +138,42 @@ public sealed class AuthService(
         CancellationToken cancellationToken = default
     )
     {
-        var tokenHash = TokenHasher.Hash(token);
-        var stored = await emailVerificationTokenRepository.FindByTokenHashAsync(
-            tokenHash,
-            cancellationToken
-        );
-
-        if (stored is null)
-        {
-            return new AuthResult.InvalidVerificationToken();
-        }
-
-        if (stored.IsConsumed)
-        {
-            return new AuthResult.InvalidVerificationToken();
-        }
-
-        if (stored.IsExpired)
-        {
-            return new AuthResult.VerificationTokenExpired();
-        }
-
-        var consumed = await emailVerificationTokenRepository.TryConsumeAsync(
-            stored.Id,
-            cancellationToken
-        );
-        if (!consumed)
-        {
-            return new AuthResult.InvalidVerificationToken();
-        }
-
-        await userRepository.MarkEmailVerifiedAsync(stored.UserId, cancellationToken);
-
-        var user = await userRepository.GetByIdAsync(stored.UserId, cancellationToken);
+        var hash = TokenHash.From(TokenHasher.Hash(token));
+        var user = await users.GetByEmailVerificationTokenHashAsync(hash, cancellationToken);
         if (user is null)
         {
             return new AuthResult.InvalidVerificationToken();
         }
 
-        var accessToken = accessTokenService.Generate(user.Id, user.Email);
-        var refreshToken = await StoreRefreshTokenAsync(user.Id, cancellationToken);
+        var stored = user.EmailVerificationTokens.SingleOrDefault(t => t.TokenHash == hash);
+        if (stored is null || stored.IsConsumed)
+        {
+            return new AuthResult.InvalidVerificationToken();
+        }
 
-        return new AuthResult.Success(user.Id, user.Email, accessToken, refreshToken);
+        if (stored.IsExpired(clock.UtcNow))
+        {
+            return new AuthResult.VerificationTokenExpired();
+        }
+
+        if (!user.VerifyEmail(hash, clock))
+        {
+            return new AuthResult.InvalidVerificationToken();
+        }
+
+        try
+        {
+            await users.SaveChangesAsync(cancellationToken);
+        }
+        catch (ConcurrencyConflictException)
+        {
+            return new AuthResult.InvalidVerificationToken();
+        }
+
+        var accessToken = accessTokenService.Generate(user.Id.Value, user.Email.Value);
+        var refreshToken = await IssueSessionAsync(user.Id, cancellationToken);
+
+        return new AuthResult.Success(user.Id.Value, user.Email.Value, accessToken, refreshToken);
     }
 
     public async Task<AuthResult> ResendVerificationAsync(
@@ -169,20 +181,23 @@ public sealed class AuthService(
         CancellationToken cancellationToken = default
     )
     {
-        var normalizedEmail = email.Trim().ToLowerInvariant();
-        var user = await userRepository.GetByEmailAsync(normalizedEmail, cancellationToken);
+        var normalizedEmail = Email.Normalize(email);
+        var user = await users.GetByEmailAsync(normalizedEmail, cancellationToken);
 
         if (user is null || user.EmailVerified)
         {
             return new AuthResult.EmailVerificationSent();
         }
 
-        await emailVerificationTokenRepository.DeleteAllForUserAsync(user.Id, cancellationToken);
-        var verificationToken = await StoreVerificationTokenAsync(user.Id, cancellationToken);
+        var (plainToken, hashedToken) = secureTokenGenerator.Generate();
+        var expiresAt = clock.UtcNow.AddHours(EmailVerificationHours);
+        user.IssueEmailVerificationToken(TokenHash.From(hashedToken), expiresAt, clock);
+        await users.SaveChangesAsync(cancellationToken);
+
         await emailWorkflowStarter.StartVerificationWorkflowAsync(
-            user.Id,
-            user.Email,
-            verificationToken,
+            user.Id.Value,
+            user.Email.Value,
+            plainToken,
             cancellationToken
         );
 
@@ -194,20 +209,23 @@ public sealed class AuthService(
         CancellationToken cancellationToken = default
     )
     {
-        var normalizedEmail = email.Trim().ToLowerInvariant();
-        var user = await userRepository.GetByEmailAsync(normalizedEmail, cancellationToken);
+        var normalizedEmail = Email.Normalize(email);
+        var user = await users.GetByEmailAsync(normalizedEmail, cancellationToken);
 
         if (user is null || !user.EmailVerified)
         {
             return new AuthResult.PasswordResetSent();
         }
 
-        await passwordResetTokenRepository.DeleteAllForUserAsync(user.Id, cancellationToken);
-        var resetToken = await StorePasswordResetTokenAsync(user.Id, cancellationToken);
+        var (plainToken, hashedToken) = secureTokenGenerator.Generate();
+        var expiresAt = clock.UtcNow.AddMinutes(PasswordResetMinutes);
+        user.IssuePasswordResetToken(TokenHash.From(hashedToken), expiresAt, clock);
+        await users.SaveChangesAsync(cancellationToken);
+
         await emailWorkflowStarter.StartPasswordResetWorkflowAsync(
-            user.Id,
-            user.Email,
-            resetToken,
+            user.Id.Value,
+            user.Email.Value,
+            plainToken,
             cancellationToken
         );
 
@@ -220,98 +238,54 @@ public sealed class AuthService(
         CancellationToken cancellationToken = default
     )
     {
-        var tokenHash = TokenHasher.Hash(token);
-        var stored = await passwordResetTokenRepository.FindByTokenHashAsync(
-            tokenHash,
-            cancellationToken
-        );
-
-        if (stored is null)
-        {
-            return new AuthResult.InvalidResetToken();
-        }
-
-        if (stored.IsConsumed)
-        {
-            return new AuthResult.InvalidResetToken();
-        }
-
-        if (stored.IsExpired)
-        {
-            return new AuthResult.ResetTokenExpired();
-        }
-
-        var consumed = await passwordResetTokenRepository.TryConsumeAsync(
-            stored.Id,
-            cancellationToken
-        );
-        if (!consumed)
-        {
-            return new AuthResult.InvalidResetToken();
-        }
-
-        var newHash = passwordHasher.Hash(newPassword);
-        await userRepository.UpdatePasswordHashAsync(stored.UserId, newHash, cancellationToken);
-
-        await refreshTokenRepository.RevokeAllForUserAsync(stored.UserId, cancellationToken);
-
-        var user = await userRepository.GetByIdAsync(stored.UserId, cancellationToken);
+        var hash = TokenHash.From(TokenHasher.Hash(token));
+        var user = await users.GetByPasswordResetTokenHashAsync(hash, cancellationToken);
         if (user is null)
         {
             return new AuthResult.InvalidResetToken();
         }
 
-        var accessToken = accessTokenService.Generate(user.Id, user.Email);
-        var refreshToken = await StoreRefreshTokenAsync(user.Id, cancellationToken);
+        var stored = user.PasswordResetTokens.SingleOrDefault(t => t.TokenHash == hash);
+        if (stored is null || stored.IsConsumed)
+        {
+            return new AuthResult.InvalidResetToken();
+        }
 
-        return new AuthResult.Success(user.Id, user.Email, accessToken, refreshToken);
+        if (stored.IsExpired(clock.UtcNow))
+        {
+            return new AuthResult.ResetTokenExpired();
+        }
+
+        var newPasswordHash = PasswordHash.From(passwordHasher.Hash(newPassword));
+        if (!user.ResetPassword(hash, newPasswordHash, clock))
+        {
+            return new AuthResult.InvalidResetToken();
+        }
+
+        try
+        {
+            await users.SaveChangesAsync(cancellationToken);
+        }
+        catch (ConcurrencyConflictException)
+        {
+            return new AuthResult.InvalidResetToken();
+        }
+
+        await userSessions.RevokeAllForUserAsync(user.Id, cancellationToken);
+
+        var accessToken = accessTokenService.Generate(user.Id.Value, user.Email.Value);
+        var refreshToken = await IssueSessionAsync(user.Id, cancellationToken);
+
+        return new AuthResult.Success(user.Id.Value, user.Email.Value, accessToken, refreshToken);
     }
 
-    private async Task<string> StoreRefreshTokenAsync(
-        Guid userId,
-        CancellationToken cancellationToken
-    )
+    private async Task<string> IssueSessionAsync(UserId userId, CancellationToken cancellationToken)
     {
         var (plainToken, hashedToken) = secureTokenGenerator.Generate();
-        await refreshTokenRepository.StoreAsync(
-            userId,
-            hashedToken,
-            DateTimeOffset.UtcNow.AddDays(RefreshTokenDays),
-            cancellationToken
-        );
-
-        return plainToken;
-    }
-
-    private async Task<string> StoreVerificationTokenAsync(
-        Guid userId,
-        CancellationToken cancellationToken
-    )
-    {
-        var (plainToken, hashedToken) = secureTokenGenerator.Generate();
-        await emailVerificationTokenRepository.StoreAsync(
-            userId,
-            hashedToken,
-            DateTimeOffset.UtcNow.AddHours(EmailVerificationHours),
-            cancellationToken
-        );
-
-        return plainToken;
-    }
-
-    private async Task<string> StorePasswordResetTokenAsync(
-        Guid userId,
-        CancellationToken cancellationToken
-    )
-    {
-        var (plainToken, hashedToken) = secureTokenGenerator.Generate();
-        await passwordResetTokenRepository.StoreAsync(
-            userId,
-            hashedToken,
-            DateTimeOffset.UtcNow.AddMinutes(PasswordResetMinutes),
-            cancellationToken
-        );
-
+        var expiresAt = clock.UtcNow.AddDays(RefreshTokenDays);
+        var session = UserSession.Issue(userId, TokenHash.From(hashedToken), expiresAt, clock);
+        await userSessions.AddAsync(session, cancellationToken);
+        await userSessions.SaveChangesAsync(cancellationToken);
         return plainToken;
     }
 }

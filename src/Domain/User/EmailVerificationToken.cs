@@ -1,14 +1,37 @@
 namespace Domain.User;
 
-public sealed record EmailVerificationToken
+public sealed class EmailVerificationToken
 {
-    public required Guid Id { get; init; }
-    public required Guid UserId { get; init; }
-    public required string TokenHash { get; init; }
-    public required DateTimeOffset ExpiresAt { get; init; }
-    public required DateTimeOffset CreatedAt { get; init; }
-    public DateTimeOffset? ConsumedAt { get; init; }
+    public Guid Id { get; private set; }
+    public UserId UserId { get; private set; }
+    public TokenHash TokenHash { get; private set; } = null!;
+    public DateTimeOffset ExpiresAt { get; private set; }
+    public DateTimeOffset CreatedAt { get; private set; }
+    public DateTimeOffset? ConsumedAt { get; private set; }
 
     public bool IsConsumed => ConsumedAt is not null;
-    public bool IsExpired => ExpiresAt < DateTimeOffset.UtcNow;
+
+    public bool IsExpired(DateTimeOffset now) => ExpiresAt < now;
+
+    private EmailVerificationToken() { }
+
+    public static EmailVerificationToken Issue(
+        UserId userId,
+        TokenHash hash,
+        DateTimeOffset expiresAt,
+        IClock clock
+    ) =>
+        new()
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            TokenHash = hash,
+            ExpiresAt = expiresAt,
+            CreatedAt = clock.UtcNow,
+        };
+
+    internal void Consume(IClock clock)
+    {
+        ConsumedAt = clock.UtcNow;
+    }
 }

@@ -1,165 +1,140 @@
 using App.Auth;
 using AwesomeAssertions;
+using Domain;
+using Domain.User;
 using NSubstitute;
 using NSubstitute.Core;
 using Xunit;
-using DomainEmailVerificationToken = Domain.User.EmailVerificationToken;
-using DomainPasswordResetToken = Domain.User.PasswordResetToken;
-using DomainRefreshToken = Domain.User.RefreshToken;
 using DomainUser = Domain.User.User;
+using DomainUserSession = Domain.User.UserSession;
 
 namespace App.UnitTests;
 
 public class AuthServiceTests
 {
-    private static readonly AccessToken TestToken = new()
+    private static readonly DateTimeOffset TestNow = new(2026, 5, 14, 12, 0, 0, TimeSpan.Zero);
+    private static readonly AccessToken TestAccessToken = new()
     {
-        Token = "token",
-        ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(15),
+        Token = "access-token",
+        ExpiresAt = TestNow.AddMinutes(15),
     };
 
     [Fact]
-    public async Task RegisterAsync_NewEmail_ReturnsRegistrationPendingAndSendsVerification()
+    public async Task RegisterAsync_NewEmail_ReturnsRegistrationPendingAndStartsVerificationWorkflow()
     {
         var ctx = CreateSut();
-        var user = CreateUser(email: "test@example.com", passwordHash: "hashed-password");
-
-        ctx.UserRepository
-            .GetByEmailAsync(default!, default)
-            .ReturnsForAnyArgs(
-                (Func<CallInfo, Task<DomainUser?>>)(_ => Task.FromResult<DomainUser?>(null))
-            );
+        DomainUser? addedUser = null;
+        GivenUserByEmail(ctx, null);
         ctx.PasswordHasher.Hash("password").Returns("hashed-password");
-        ctx.UserRepository
-            .CreateAsync(default!, default!, default)
-            .ReturnsForAnyArgs((Func<CallInfo, Task<DomainUser>>)(_ => Task.FromResult(user)));
         ctx.SecureTokenGenerator.Generate().Returns(("verification-token", "hashed-verification-token"));
+        ctx.UserRepository
+            .When(x => x.AddAsync(Arg.Any<DomainUser>(), Arg.Any<CancellationToken>()))
+            .Do(call => addedUser = call.Arg<DomainUser>());
 
         var result = await ctx.Sut.RegisterAsync(" Test@Example.COM ", "password");
 
+        addedUser.Should().NotBeNull();
+        addedUser!.Email.Value.Should().Be("test@example.com");
+        addedUser.PasswordHash.Value.Should().Be("hashed-password");
+        addedUser.EmailVerified.Should().BeFalse();
+        var verificationToken = addedUser.EmailVerificationTokens.Should().ContainSingle().Which;
+        verificationToken.TokenHash.Should().Be(TokenHash.From("hashed-verification-token"));
+        verificationToken.ExpiresAt.Should().Be(ctx.Clock.UtcNow.AddHours(24));
+
         var pending = result.Should().BeOfType<AuthResult.RegistrationPending>().Subject;
-        pending.UserId.Should().Be(user.Id);
+        pending.UserId.Should().Be(addedUser.Id.Value);
         pending.Email.Should().Be("test@example.com");
+
         await ctx.UserRepository
             .Received(1)
-            .GetByEmailAsync("test@example.com", Arg.Any<CancellationToken>());
-        await ctx.UserRepository
-            .Received(1)
-            .CreateAsync("test@example.com", "hashed-password", Arg.Any<CancellationToken>());
-        ctx.SecureTokenGenerator.Received(1).Generate();
-        await ctx.EmailVerificationTokenRepository
-            .Received(1)
-            .StoreAsync(
-                user.Id,
-                "hashed-verification-token",
-                Arg.Any<DateTimeOffset>(),
+            .GetByEmailAsync(
+                Arg.Is<Email>(email => email.Value == "test@example.com"),
                 Arg.Any<CancellationToken>()
             );
+        await ctx.UserRepository.Received(1).AddAsync(addedUser, Arg.Any<CancellationToken>());
+        await ctx.UserRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
         await ctx.EmailWorkflowStarter
             .Received(1)
             .StartVerificationWorkflowAsync(
-                user.Id,
+                addedUser.Id.Value,
                 "test@example.com",
                 "verification-token",
                 Arg.Any<CancellationToken>()
             );
         ctx.AccessTokenService.DidNotReceiveWithAnyArgs().Generate(default, default!);
-        await ctx.RefreshTokenRepository.DidNotReceiveWithAnyArgs().StoreAsync(default, default!, default, default);
+        await ctx.UserSessionRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
     }
 
     [Fact]
     public async Task RegisterAsync_DuplicateEmail_ReturnsEmailAlreadyRegistered()
     {
         var ctx = CreateSut();
-        var existingUser = CreateUser(email: "test@example.com", passwordHash: "hashed-password");
-
-        ctx.UserRepository
-            .GetByEmailAsync(default!, default)
-            .ReturnsForAnyArgs(
-                (Func<CallInfo, Task<DomainUser?>>)(_ => Task.FromResult<DomainUser?>(existingUser))
-            );
+        var existingUser = CreateVerifiedUser(ctx.Clock);
+        GivenUserByEmail(ctx, existingUser);
 
         var result = await ctx.Sut.RegisterAsync("test@example.com", "password");
 
         result.Should().BeOfType<AuthResult.EmailAlreadyRegistered>();
         ctx.PasswordHasher.DidNotReceiveWithAnyArgs().Hash(default!);
-        await ctx.UserRepository.DidNotReceiveWithAnyArgs().CreateAsync(default!, default!, default);
-        ctx.AccessTokenService.DidNotReceiveWithAnyArgs().Generate(default, default!);
         ctx.SecureTokenGenerator.DidNotReceiveWithAnyArgs().Generate();
-        await ctx.RefreshTokenRepository
+        await ctx.UserRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
+        await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.EmailWorkflowStarter
             .DidNotReceiveWithAnyArgs()
-            .StoreAsync(default, default!, default, default);
+            .StartVerificationWorkflowAsync(default, default!, default!, default);
     }
 
     [Fact]
-    public async Task LoginAsync_ValidCredentials_ReturnsSuccessAndStoresRefreshToken()
+    public async Task LoginAsync_ValidVerifiedUser_ReturnsSuccessAndIssuesSession()
     {
         var ctx = CreateSut();
-        var user = CreateUser(email: "test@example.com", passwordHash: "hashed-password");
-
-        ctx.UserRepository
-            .GetByEmailAsync(default!, default)
-            .ReturnsForAnyArgs(
-                (Func<CallInfo, Task<DomainUser?>>)(_ => Task.FromResult<DomainUser?>(user))
-            );
-        ctx.PasswordHasher.Verify("password", user.PasswordHash).Returns(true);
-        ctx.AccessTokenService.Generate(user.Id, user.Email).Returns(TestToken);
+        var user = CreateVerifiedUser(ctx.Clock);
+        GivenUserByEmail(ctx, user);
+        ctx.PasswordHasher.Verify("password", user.PasswordHash.Value).Returns(true);
         ctx.SecureTokenGenerator.Generate().Returns(("refresh-token", "hashed-refresh-token"));
 
-        var before = DateTimeOffset.UtcNow;
         var result = await ctx.Sut.LoginAsync(" Test@Example.COM ", "password");
-        var after = DateTimeOffset.UtcNow;
 
         var success = result.Should().BeOfType<AuthResult.Success>().Subject;
-        success.UserId.Should().Be(user.Id);
+        success.UserId.Should().Be(user.Id.Value);
         success.Email.Should().Be("test@example.com");
-        success.AccessToken.Should().Be(TestToken);
+        success.AccessToken.Should().Be(TestAccessToken);
         success.RefreshToken.Should().Be("refresh-token");
-        await ctx.UserRepository
-            .Received(1)
-            .GetByEmailAsync("test@example.com", Arg.Any<CancellationToken>());
         ctx.PasswordHasher.Received(1).Verify("password", "hashed-password");
-        ctx.SecureTokenGenerator.Received(1).Generate();
-        await ctx.RefreshTokenRepository
+        ctx.AccessTokenService.Received(1).Generate(user.Id.Value, user.Email.Value);
+        await ctx.UserSessionRepository
             .Received(1)
-            .StoreAsync(
-                user.Id,
-                "hashed-refresh-token",
-                Arg.Is<DateTimeOffset>(expiresAt => IsSevenDayExpiry(expiresAt, before, after)),
+            .AddAsync(
+                Arg.Is<DomainUserSession>(session =>
+                    IsIssuedSession(session, user.Id, "hashed-refresh-token", ctx.Clock.UtcNow)
+                ),
                 Arg.Any<CancellationToken>()
             );
+        await ctx.UserSessionRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
     public async Task LoginAsync_UnknownEmail_ReturnsInvalidCredentials()
     {
         var ctx = CreateSut();
-
-        ctx.UserRepository
-            .GetByEmailAsync(default!, default)
-            .ReturnsForAnyArgs(
-                (Func<CallInfo, Task<DomainUser?>>)(_ => Task.FromResult<DomainUser?>(null))
-            );
+        GivenUserByEmail(ctx, null);
 
         var result = await ctx.Sut.LoginAsync("missing@example.com", "password");
 
         result.Should().BeOfType<AuthResult.InvalidCredentials>();
+        ctx.PasswordHasher.Received(1).Verify("password", "dummy-hash");
         ctx.AccessTokenService.DidNotReceiveWithAnyArgs().Generate(default, default!);
         ctx.SecureTokenGenerator.DidNotReceiveWithAnyArgs().Generate();
+        await ctx.UserSessionRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
     }
 
     [Fact]
     public async Task LoginAsync_WrongPassword_ReturnsInvalidCredentials()
     {
         var ctx = CreateSut();
-        var user = CreateUser(email: "test@example.com", passwordHash: "hashed-password");
-
-        ctx.UserRepository
-            .GetByEmailAsync(default!, default)
-            .ReturnsForAnyArgs(
-                (Func<CallInfo, Task<DomainUser?>>)(_ => Task.FromResult<DomainUser?>(user))
-            );
-        ctx.PasswordHasher.Verify("wrong-password", user.PasswordHash).Returns(false);
+        var user = CreateVerifiedUser(ctx.Clock);
+        GivenUserByEmail(ctx, user);
+        ctx.PasswordHasher.Verify("wrong-password", user.PasswordHash.Value).Returns(false);
 
         var result = await ctx.Sut.LoginAsync("test@example.com", "wrong-password");
 
@@ -167,24 +142,16 @@ public class AuthServiceTests
         ctx.PasswordHasher.Received(1).Verify("wrong-password", "hashed-password");
         ctx.AccessTokenService.DidNotReceiveWithAnyArgs().Generate(default, default!);
         ctx.SecureTokenGenerator.DidNotReceiveWithAnyArgs().Generate();
+        await ctx.UserSessionRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
     }
 
     [Fact]
     public async Task LoginAsync_UnverifiedUser_ReturnsEmailNotVerified()
     {
         var ctx = CreateSut();
-        var user = CreateUser(
-            email: "test@example.com",
-            passwordHash: "hashed-password",
-            emailVerified: false
-        );
-
-        ctx.UserRepository
-            .GetByEmailAsync(default!, default)
-            .ReturnsForAnyArgs(
-                (Func<CallInfo, Task<DomainUser?>>)(_ => Task.FromResult<DomainUser?>(user))
-            );
-        ctx.PasswordHasher.Verify("password", user.PasswordHash).Returns(true);
+        var user = CreateUnverifiedUser(ctx.Clock);
+        GivenUserByEmail(ctx, user);
+        ctx.PasswordHasher.Verify("password", user.PasswordHash.Value).Returns(true);
 
         var result = await ctx.Sut.LoginAsync("test@example.com", "password");
 
@@ -192,269 +159,185 @@ public class AuthServiceTests
         ctx.PasswordHasher.Received(1).Verify("password", "hashed-password");
         ctx.AccessTokenService.DidNotReceiveWithAnyArgs().Generate(default, default!);
         ctx.SecureTokenGenerator.DidNotReceiveWithAnyArgs().Generate();
-        await ctx.RefreshTokenRepository
-            .DidNotReceiveWithAnyArgs()
-            .StoreAsync(default, default!, default, default);
+        await ctx.UserSessionRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
     }
 
     [Fact]
-    public async Task RefreshAsync_ValidToken_ReturnsSuccessAndRotatesRefreshToken()
+    public async Task RefreshAsync_ValidActiveSession_RotatesSessionAndReturnsSuccess()
     {
         var ctx = CreateSut();
-        var user = CreateUser(email: "test@example.com", passwordHash: "hashed-password");
-        var refreshToken = CreateRefreshToken(user.Id, TokenHasher.Hash("refresh-token"));
-
-        ctx.RefreshTokenRepository
-            .FindByTokenHashAsync(default!, default)
-            .ReturnsForAnyArgs(
-                (Func<CallInfo, Task<DomainRefreshToken?>>)(
-                    _ => Task.FromResult<DomainRefreshToken?>(refreshToken)
-                )
-            );
-        ctx.UserRepository
-            .GetByIdAsync(default, default)
-            .ReturnsForAnyArgs(
-                (Func<CallInfo, Task<DomainUser?>>)(_ => Task.FromResult<DomainUser?>(user))
-            );
-        ctx.AccessTokenService.Generate(user.Id, user.Email).Returns(TestToken);
+        var user = CreateVerifiedUser(ctx.Clock);
+        var session = CreateSession(user.Id, "refresh-token", ctx.Clock);
+        GivenSessionByRefreshToken(ctx, session);
+        GivenUserById(ctx, user);
         ctx.SecureTokenGenerator.Generate().Returns(("new-refresh-token", "new-hashed-token"));
 
-        var before = DateTimeOffset.UtcNow;
         var result = await ctx.Sut.RefreshAsync("refresh-token");
-        var after = DateTimeOffset.UtcNow;
 
         var success = result.Should().BeOfType<AuthResult.Success>().Subject;
-        success.UserId.Should().Be(user.Id);
-        success.Email.Should().Be(user.Email);
-        success.AccessToken.Should().Be(TestToken);
+        success.UserId.Should().Be(user.Id.Value);
+        success.Email.Should().Be(user.Email.Value);
+        success.AccessToken.Should().Be(TestAccessToken);
         success.RefreshToken.Should().Be("new-refresh-token");
-        await ctx.RefreshTokenRepository
+        session.IsRevoked.Should().BeTrue();
+        session.RevokedAt.Should().Be(ctx.Clock.UtcNow);
+        await ctx.UserSessionRepository.Received(2).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await ctx.UserSessionRepository
             .Received(1)
-            .FindByTokenHashAsync(TokenHasher.Hash("refresh-token"), Arg.Any<CancellationToken>());
-        await ctx.RefreshTokenRepository
-            .Received(1)
-            .TryRevokeAsync(refreshToken.Id, Arg.Any<CancellationToken>());
-        await ctx.RefreshTokenRepository
-            .Received(1)
-            .StoreAsync(
-                user.Id,
-                "new-hashed-token",
-                Arg.Is<DateTimeOffset>(expiresAt => IsSevenDayExpiry(expiresAt, before, after)),
+            .AddAsync(
+                Arg.Is<DomainUserSession>(newSession =>
+                    IsIssuedSession(newSession, user.Id, "new-hashed-token", ctx.Clock.UtcNow)
+                ),
                 Arg.Any<CancellationToken>()
             );
+        ctx.AccessTokenService.Received(1).Generate(user.Id.Value, user.Email.Value);
     }
 
     [Fact]
-    public async Task RefreshAsync_UnverifiedUser_ReturnsEmailNotVerifiedAndRevokesAllUserTokens()
+    public async Task RefreshAsync_UnknownToken_ReturnsInvalidRefreshToken()
     {
         var ctx = CreateSut();
-        var user = CreateUser(
-            email: "test@example.com",
-            passwordHash: "hashed-password",
-            emailVerified: false
-        );
-        var refreshToken = CreateRefreshToken(user.Id, TokenHasher.Hash("refresh-token"));
-
-        ctx.RefreshTokenRepository
-            .FindByTokenHashAsync(default!, default)
-            .ReturnsForAnyArgs(
-                (Func<CallInfo, Task<DomainRefreshToken?>>)(
-                    _ => Task.FromResult<DomainRefreshToken?>(refreshToken)
-                )
-            );
-        ctx.UserRepository
-            .GetByIdAsync(default, default)
-            .ReturnsForAnyArgs(
-                (Func<CallInfo, Task<DomainUser?>>)(_ => Task.FromResult<DomainUser?>(user))
-            );
-
-        var result = await ctx.Sut.RefreshAsync("refresh-token");
-
-        result.Should().BeOfType<AuthResult.EmailNotVerified>();
-        await ctx.RefreshTokenRepository
-            .Received(1)
-            .FindByTokenHashAsync(TokenHasher.Hash("refresh-token"), Arg.Any<CancellationToken>());
-        await ctx.RefreshTokenRepository
-            .Received(1)
-            .TryRevokeAsync(refreshToken.Id, Arg.Any<CancellationToken>());
-        await ctx.RefreshTokenRepository
-            .Received(1)
-            .RevokeAllForUserAsync(user.Id, Arg.Any<CancellationToken>());
-        ctx.AccessTokenService.DidNotReceiveWithAnyArgs().Generate(default, default!);
-        ctx.SecureTokenGenerator.DidNotReceiveWithAnyArgs().Generate();
-        await ctx.RefreshTokenRepository
-            .DidNotReceiveWithAnyArgs()
-            .StoreAsync(default, default!, default, default);
-    }
-
-    [Fact]
-    public async Task RefreshAsync_InvalidToken_ReturnsInvalidRefreshToken()
-    {
-        var ctx = CreateSut();
-
-        ctx.RefreshTokenRepository
-            .FindByTokenHashAsync(default!, default)
-            .ReturnsForAnyArgs(
-                (Func<CallInfo, Task<DomainRefreshToken?>>)(
-                    _ => Task.FromResult<DomainRefreshToken?>(null)
-                )
-            );
+        GivenSessionByRefreshToken(ctx, null);
 
         var result = await ctx.Sut.RefreshAsync("missing-refresh-token");
 
         result.Should().BeOfType<AuthResult.InvalidRefreshToken>();
-        await ctx.RefreshTokenRepository
+        await ctx.UserSessionRepository
             .Received(1)
-            .FindByTokenHashAsync(TokenHasher.Hash("missing-refresh-token"), Arg.Any<CancellationToken>());
-        await ctx.RefreshTokenRepository
+            .GetByTokenHashAsync(
+                TokenHash.From(TokenHasher.Hash("missing-refresh-token")),
+                Arg.Any<CancellationToken>()
+            );
+        await ctx.UserSessionRepository
             .DidNotReceiveWithAnyArgs()
             .RevokeAllForUserAsync(default, default);
-        await ctx.RefreshTokenRepository.DidNotReceiveWithAnyArgs().TryRevokeAsync(default, default);
-        await ctx.RefreshTokenRepository
-            .DidNotReceiveWithAnyArgs()
-            .StoreAsync(default, default!, default, default);
+        await ctx.UserSessionRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.UserSessionRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
     }
 
     [Fact]
-    public async Task RefreshAsync_ExpiredToken_ReturnsInvalidRefreshTokenAndRevokesAllUserTokens()
+    public async Task RefreshAsync_ExpiredSession_RevokesAllAndReturnsInvalid()
     {
         var ctx = CreateSut();
-        var userId = Guid.NewGuid();
-        var refreshToken = CreateRefreshToken(
-            userId,
-            TokenHasher.Hash("expired-refresh-token"),
-            expiresAt: DateTimeOffset.UtcNow.AddMinutes(-1)
+        var user = CreateVerifiedUser(ctx.Clock);
+        var session = CreateSession(
+            user.Id,
+            "expired-refresh-token",
+            ctx.Clock,
+            expiresAt: ctx.Clock.UtcNow.AddMinutes(-1)
         );
-
-        ctx.RefreshTokenRepository
-            .FindByTokenHashAsync(default!, default)
-            .ReturnsForAnyArgs(
-                (Func<CallInfo, Task<DomainRefreshToken?>>)(
-                    _ => Task.FromResult<DomainRefreshToken?>(refreshToken)
-                )
-            );
+        GivenSessionByRefreshToken(ctx, session);
 
         var result = await ctx.Sut.RefreshAsync("expired-refresh-token");
 
         result.Should().BeOfType<AuthResult.InvalidRefreshToken>();
-        await ctx.RefreshTokenRepository
+        await ctx.UserSessionRepository
             .Received(1)
-            .RevokeAllForUserAsync(userId, Arg.Any<CancellationToken>());
-        await ctx.RefreshTokenRepository.DidNotReceiveWithAnyArgs().TryRevokeAsync(default, default);
+            .RevokeAllForUserAsync(user.Id, Arg.Any<CancellationToken>());
+        session.IsRevoked.Should().BeFalse();
+        await ctx.UserSessionRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.UserRepository.DidNotReceiveWithAnyArgs().GetByIdAsync(default, default);
         ctx.AccessTokenService.DidNotReceiveWithAnyArgs().Generate(default, default!);
         ctx.SecureTokenGenerator.DidNotReceiveWithAnyArgs().Generate();
     }
 
     [Fact]
-    public async Task RefreshAsync_RevokedToken_ReturnsInvalidRefreshTokenAndRevokesAllUserTokens()
+    public async Task RefreshAsync_RevokedSession_RevokesAllAndReturnsInvalid()
     {
         var ctx = CreateSut();
-        var userId = Guid.NewGuid();
-        var refreshToken = CreateRefreshToken(
-            userId,
-            TokenHasher.Hash("revoked-refresh-token"),
-            revokedAt: DateTimeOffset.UtcNow.AddMinutes(-1)
-        );
-
-        ctx.RefreshTokenRepository
-            .FindByTokenHashAsync(default!, default)
-            .ReturnsForAnyArgs(
-                (Func<CallInfo, Task<DomainRefreshToken?>>)(
-                    _ => Task.FromResult<DomainRefreshToken?>(refreshToken)
-                )
-            );
+        var user = CreateVerifiedUser(ctx.Clock);
+        var session = CreateSession(user.Id, "revoked-refresh-token", ctx.Clock);
+        session.TryRevoke(ctx.Clock).Should().BeTrue();
+        GivenSessionByRefreshToken(ctx, session);
 
         var result = await ctx.Sut.RefreshAsync("revoked-refresh-token");
 
         result.Should().BeOfType<AuthResult.InvalidRefreshToken>();
-        await ctx.RefreshTokenRepository
+        await ctx.UserSessionRepository
             .Received(1)
-            .RevokeAllForUserAsync(userId, Arg.Any<CancellationToken>());
-        await ctx.RefreshTokenRepository.DidNotReceiveWithAnyArgs().TryRevokeAsync(default, default);
+            .RevokeAllForUserAsync(user.Id, Arg.Any<CancellationToken>());
+        await ctx.UserSessionRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.UserRepository.DidNotReceiveWithAnyArgs().GetByIdAsync(default, default);
         ctx.AccessTokenService.DidNotReceiveWithAnyArgs().Generate(default, default!);
         ctx.SecureTokenGenerator.DidNotReceiveWithAnyArgs().Generate();
     }
 
     [Fact]
-    public async Task RefreshAsync_TokenLosesRevokeRace_RevokesAllUserTokensAndReturnsInvalid()
+    public async Task RefreshAsync_SaveChangesThrowsConcurrencyConflict_RevokesAllAndReturnsInvalid()
     {
         var ctx = CreateSut();
-        var user = CreateUser(email: "test@example.com", passwordHash: "hashed-password");
-        var refreshToken = CreateRefreshToken(user.Id, TokenHasher.Hash("refresh-token"));
-
-        ctx.RefreshTokenRepository
-            .FindByTokenHashAsync(default!, default)
-            .ReturnsForAnyArgs(
-                (Func<CallInfo, Task<DomainRefreshToken?>>)(
-                    _ => Task.FromResult<DomainRefreshToken?>(refreshToken)
-                )
-            );
-        ctx.RefreshTokenRepository
-            .TryRevokeAsync(default, default)
-            .ReturnsForAnyArgs((Func<CallInfo, Task<bool>>)(_ => Task.FromResult(false)));
+        var user = CreateVerifiedUser(ctx.Clock);
+        var session = CreateSession(user.Id, "refresh-token", ctx.Clock);
+        GivenSessionByRefreshToken(ctx, session);
+        ctx.UserSessionRepository
+            .When(x => x.SaveChangesAsync(Arg.Any<CancellationToken>()))
+            .Do(_ => throw new ConcurrencyConflictException("test"));
 
         var result = await ctx.Sut.RefreshAsync("refresh-token");
 
         result.Should().BeOfType<AuthResult.InvalidRefreshToken>();
-        await ctx.RefreshTokenRepository
-            .Received(1)
-            .TryRevokeAsync(refreshToken.Id, Arg.Any<CancellationToken>());
-        await ctx.RefreshTokenRepository
+        session.IsRevoked.Should().BeTrue();
+        await ctx.UserSessionRepository
             .Received(1)
             .RevokeAllForUserAsync(user.Id, Arg.Any<CancellationToken>());
         await ctx.UserRepository.DidNotReceiveWithAnyArgs().GetByIdAsync(default, default);
         ctx.AccessTokenService.DidNotReceiveWithAnyArgs().Generate(default, default!);
         ctx.SecureTokenGenerator.DidNotReceiveWithAnyArgs().Generate();
-        await ctx.RefreshTokenRepository
-            .DidNotReceiveWithAnyArgs()
-            .StoreAsync(default, default!, default, default);
     }
 
     [Fact]
-    public async Task VerifyEmailAsync_ValidToken_ReturnsSuccessAndMarksVerified()
+    public async Task RefreshAsync_UnverifiedUser_RevokesAllAndReturnsEmailNotVerified()
     {
         var ctx = CreateSut();
-        var user = CreateUser(email: "test@example.com", passwordHash: "hashed-password");
-        var stored = CreateEmailVerificationToken(user.Id, TokenHasher.Hash("verification-token"));
+        var user = CreateUnverifiedUser(ctx.Clock);
+        var session = CreateSession(user.Id, "refresh-token", ctx.Clock);
+        GivenSessionByRefreshToken(ctx, session);
+        GivenUserById(ctx, user);
 
-        ctx.EmailVerificationTokenRepository
-            .FindByTokenHashAsync(default!, default)
-            .ReturnsForAnyArgs(
-                (Func<CallInfo, Task<DomainEmailVerificationToken?>>)(
-                    _ => Task.FromResult<DomainEmailVerificationToken?>(stored)
-                )
-            );
-        ctx.UserRepository
-            .GetByIdAsync(default, default)
-            .ReturnsForAnyArgs(
-                (Func<CallInfo, Task<DomainUser?>>)(_ => Task.FromResult<DomainUser?>(user))
-            );
-        ctx.AccessTokenService.Generate(user.Id, user.Email).Returns(TestToken);
+        var result = await ctx.Sut.RefreshAsync("refresh-token");
+
+        result.Should().BeOfType<AuthResult.EmailNotVerified>();
+        session.IsRevoked.Should().BeTrue();
+        await ctx.UserSessionRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await ctx.UserSessionRepository
+            .Received(1)
+            .RevokeAllForUserAsync(user.Id, Arg.Any<CancellationToken>());
+        await ctx.UserSessionRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
+        ctx.AccessTokenService.DidNotReceiveWithAnyArgs().Generate(default, default!);
+        ctx.SecureTokenGenerator.DidNotReceiveWithAnyArgs().Generate();
+    }
+
+    [Fact]
+    public async Task VerifyEmailAsync_ValidToken_ConsumesTokenIssuesSessionReturnsSuccess()
+    {
+        var ctx = CreateSut();
+        var user = CreateUnverifiedUser(ctx.Clock);
+        var verificationHash = TokenHash.From(TokenHasher.Hash("verification-token"));
+        var token = user.IssueEmailVerificationToken(
+            verificationHash,
+            ctx.Clock.UtcNow.AddHours(1),
+            ctx.Clock
+        );
+        GivenUserByVerificationToken(ctx, user);
         ctx.SecureTokenGenerator.Generate().Returns(("refresh-token", "hashed-refresh-token"));
 
         var result = await ctx.Sut.VerifyEmailAsync("verification-token");
 
         var success = result.Should().BeOfType<AuthResult.Success>().Subject;
-        success.UserId.Should().Be(user.Id);
-        success.Email.Should().Be(user.Email);
-        success.AccessToken.Should().Be(TestToken);
+        success.UserId.Should().Be(user.Id.Value);
+        success.Email.Should().Be(user.Email.Value);
+        success.AccessToken.Should().Be(TestAccessToken);
         success.RefreshToken.Should().Be("refresh-token");
-        await ctx.EmailVerificationTokenRepository
+        user.EmailVerified.Should().BeTrue();
+        user.EmailVerifiedAt.Should().Be(ctx.Clock.UtcNow);
+        token.ConsumedAt.Should().Be(ctx.Clock.UtcNow);
+        await ctx.UserRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await ctx.UserSessionRepository
             .Received(1)
-            .FindByTokenHashAsync(TokenHasher.Hash("verification-token"), Arg.Any<CancellationToken>());
-        await ctx.EmailVerificationTokenRepository
-            .Received(1)
-            .TryConsumeAsync(stored.Id, Arg.Any<CancellationToken>());
-        await ctx.UserRepository
-            .Received(1)
-            .MarkEmailVerifiedAsync(stored.UserId, Arg.Any<CancellationToken>());
-        ctx.AccessTokenService.Received(1).Generate(user.Id, user.Email);
-        await ctx.RefreshTokenRepository
-            .Received(1)
-            .StoreAsync(
-                user.Id,
-                "hashed-refresh-token",
-                Arg.Any<DateTimeOffset>(),
+            .AddAsync(
+                Arg.Is<DomainUserSession>(session =>
+                    IsIssuedSession(session, user.Id, "hashed-refresh-token", ctx.Clock.UtcNow)
+                ),
                 Arg.Any<CancellationToken>()
             );
     }
@@ -463,57 +346,38 @@ public class AuthServiceTests
     public async Task VerifyEmailAsync_UnknownToken_ReturnsInvalidVerificationToken()
     {
         var ctx = CreateSut();
-
-        ctx.EmailVerificationTokenRepository
-            .FindByTokenHashAsync(default!, default)
-            .ReturnsForAnyArgs(
-                (Func<CallInfo, Task<DomainEmailVerificationToken?>>)(
-                    _ => Task.FromResult<DomainEmailVerificationToken?>(null)
-                )
-            );
+        GivenUserByVerificationToken(ctx, null);
 
         var result = await ctx.Sut.VerifyEmailAsync("missing-token");
 
         result.Should().BeOfType<AuthResult.InvalidVerificationToken>();
-        await ctx.EmailVerificationTokenRepository
+        await ctx.UserRepository
             .Received(1)
-            .FindByTokenHashAsync(TokenHasher.Hash("missing-token"), Arg.Any<CancellationToken>());
-        await ctx.EmailVerificationTokenRepository
-            .DidNotReceiveWithAnyArgs()
-            .TryConsumeAsync(default, default);
-        await ctx.UserRepository.DidNotReceiveWithAnyArgs().MarkEmailVerifiedAsync(default, default);
+            .GetByEmailVerificationTokenHashAsync(
+                TokenHash.From(TokenHasher.Hash("missing-token")),
+                Arg.Any<CancellationToken>()
+            );
+        await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.UserSessionRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
         ctx.AccessTokenService.DidNotReceiveWithAnyArgs().Generate(default, default!);
-        ctx.SecureTokenGenerator.DidNotReceiveWithAnyArgs().Generate();
-        await ctx.RefreshTokenRepository
-            .DidNotReceiveWithAnyArgs()
-            .StoreAsync(default, default!, default, default);
     }
 
     [Fact]
     public async Task VerifyEmailAsync_ConsumedToken_ReturnsInvalidVerificationToken()
     {
         var ctx = CreateSut();
-        var stored = CreateEmailVerificationToken(
-            Guid.NewGuid(),
-            TokenHasher.Hash("consumed-token"),
-            consumedAt: DateTimeOffset.UtcNow.AddMinutes(-1)
-        );
-
-        ctx.EmailVerificationTokenRepository
-            .FindByTokenHashAsync(default!, default)
-            .ReturnsForAnyArgs(
-                (Func<CallInfo, Task<DomainEmailVerificationToken?>>)(
-                    _ => Task.FromResult<DomainEmailVerificationToken?>(stored)
-                )
-            );
+        var user = CreateUnverifiedUser(ctx.Clock);
+        var hash = TokenHash.From(TokenHasher.Hash("consumed-token"));
+        var token = user.IssueEmailVerificationToken(hash, ctx.Clock.UtcNow.AddHours(1), ctx.Clock);
+        user.VerifyEmail(hash, ctx.Clock).Should().BeTrue();
+        GivenUserByVerificationToken(ctx, user);
 
         var result = await ctx.Sut.VerifyEmailAsync("consumed-token");
 
         result.Should().BeOfType<AuthResult.InvalidVerificationToken>();
-        await ctx.EmailVerificationTokenRepository
-            .DidNotReceiveWithAnyArgs()
-            .TryConsumeAsync(default, default);
-        await ctx.UserRepository.DidNotReceiveWithAnyArgs().MarkEmailVerifiedAsync(default, default);
+        token.IsConsumed.Should().BeTrue();
+        await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.UserSessionRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
         ctx.AccessTokenService.DidNotReceiveWithAnyArgs().Generate(default, default!);
         ctx.SecureTokenGenerator.DidNotReceiveWithAnyArgs().Generate();
     }
@@ -522,98 +386,67 @@ public class AuthServiceTests
     public async Task VerifyEmailAsync_ExpiredToken_ReturnsVerificationTokenExpired()
     {
         var ctx = CreateSut();
-        var stored = CreateEmailVerificationToken(
-            Guid.NewGuid(),
-            TokenHasher.Hash("expired-token"),
-            expiresAt: DateTimeOffset.UtcNow.AddMinutes(-1)
-        );
-
-        ctx.EmailVerificationTokenRepository
-            .FindByTokenHashAsync(default!, default)
-            .ReturnsForAnyArgs(
-                (Func<CallInfo, Task<DomainEmailVerificationToken?>>)(
-                    _ => Task.FromResult<DomainEmailVerificationToken?>(stored)
-                )
-            );
+        var user = CreateUnverifiedUser(ctx.Clock);
+        var hash = TokenHash.From(TokenHasher.Hash("expired-token"));
+        var token = user.IssueEmailVerificationToken(hash, ctx.Clock.UtcNow.AddMinutes(-1), ctx.Clock);
+        GivenUserByVerificationToken(ctx, user);
 
         var result = await ctx.Sut.VerifyEmailAsync("expired-token");
 
         result.Should().BeOfType<AuthResult.VerificationTokenExpired>();
-        await ctx.EmailVerificationTokenRepository
-            .DidNotReceiveWithAnyArgs()
-            .TryConsumeAsync(default, default);
-        await ctx.UserRepository.DidNotReceiveWithAnyArgs().MarkEmailVerifiedAsync(default, default);
+        user.EmailVerified.Should().BeFalse();
+        token.ConsumedAt.Should().BeNull();
+        await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.UserSessionRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
         ctx.AccessTokenService.DidNotReceiveWithAnyArgs().Generate(default, default!);
         ctx.SecureTokenGenerator.DidNotReceiveWithAnyArgs().Generate();
     }
 
     [Fact]
-    public async Task VerifyEmailAsync_ConsumeRace_ReturnsInvalidVerificationToken()
+    public async Task VerifyEmailAsync_SaveChangesThrowsConcurrencyConflict_ReturnsInvalid()
     {
         var ctx = CreateSut();
-        var stored = CreateEmailVerificationToken(Guid.NewGuid(), TokenHasher.Hash("race-token"));
-
-        ctx.EmailVerificationTokenRepository
-            .FindByTokenHashAsync(default!, default)
-            .ReturnsForAnyArgs(
-                (Func<CallInfo, Task<DomainEmailVerificationToken?>>)(
-                    _ => Task.FromResult<DomainEmailVerificationToken?>(stored)
-                )
-            );
-        ctx.EmailVerificationTokenRepository
-            .TryConsumeAsync(default, default)
-            .ReturnsForAnyArgs((Func<CallInfo, Task<bool>>)(_ => Task.FromResult(false)));
+        var user = CreateUnverifiedUser(ctx.Clock);
+        var hash = TokenHash.From(TokenHasher.Hash("race-token"));
+        user.IssueEmailVerificationToken(hash, ctx.Clock.UtcNow.AddHours(1), ctx.Clock);
+        GivenUserByVerificationToken(ctx, user);
+        ctx.UserRepository
+            .When(x => x.SaveChangesAsync(Arg.Any<CancellationToken>()))
+            .Do(_ => throw new ConcurrencyConflictException("test"));
 
         var result = await ctx.Sut.VerifyEmailAsync("race-token");
 
         result.Should().BeOfType<AuthResult.InvalidVerificationToken>();
-        await ctx.EmailVerificationTokenRepository
-            .Received(1)
-            .TryConsumeAsync(stored.Id, Arg.Any<CancellationToken>());
-        await ctx.UserRepository.DidNotReceiveWithAnyArgs().MarkEmailVerifiedAsync(default, default);
+        await ctx.UserSessionRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
         ctx.AccessTokenService.DidNotReceiveWithAnyArgs().Generate(default, default!);
         ctx.SecureTokenGenerator.DidNotReceiveWithAnyArgs().Generate();
     }
 
     [Fact]
-    public async Task ResendVerificationAsync_UnverifiedUser_DeletesOldTokensStartsWorkflow()
+    public async Task ResendVerificationAsync_UnverifiedUser_IssuesNewTokenAndStartsWorkflow()
     {
         var ctx = CreateSut();
-        var user = CreateUser(
-            email: "test@example.com",
-            passwordHash: "hashed-password",
-            emailVerified: false
+        var user = CreateUnverifiedUser(ctx.Clock);
+        user.IssueEmailVerificationToken(
+            TokenHash.From("old-verification-hash"),
+            ctx.Clock.UtcNow.AddHours(1),
+            ctx.Clock
         );
-
-        ctx.UserRepository
-            .GetByEmailAsync(default!, default)
-            .ReturnsForAnyArgs(
-                (Func<CallInfo, Task<DomainUser?>>)(_ => Task.FromResult<DomainUser?>(user))
-            );
-        ctx.SecureTokenGenerator.Generate().Returns(("verification-token", "hashed-verification-token"));
+        GivenUserByEmail(ctx, user);
+        ctx.SecureTokenGenerator.Generate().Returns(("verification-token", "new-verification-hash"));
 
         var result = await ctx.Sut.ResendVerificationAsync(" Test@Example.COM ");
 
         result.Should().BeOfType<AuthResult.EmailVerificationSent>();
-        await ctx.UserRepository
-            .Received(1)
-            .GetByEmailAsync("test@example.com", Arg.Any<CancellationToken>());
-        await ctx.EmailVerificationTokenRepository
-            .Received(1)
-            .DeleteAllForUserAsync(user.Id, Arg.Any<CancellationToken>());
-        await ctx.EmailVerificationTokenRepository
-            .Received(1)
-            .StoreAsync(
-                user.Id,
-                "hashed-verification-token",
-                Arg.Any<DateTimeOffset>(),
-                Arg.Any<CancellationToken>()
-            );
+        var freshToken = user.EmailVerificationTokens.Should().ContainSingle().Which;
+        freshToken.TokenHash.Should().Be(TokenHash.From("new-verification-hash"));
+        freshToken.ExpiresAt.Should().Be(ctx.Clock.UtcNow.AddHours(24));
+        await ctx.UserRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
         await ctx.EmailWorkflowStarter
             .Received(1)
             .StartVerificationWorkflowAsync(
-                user.Id,
-                user.Email,
+                user.Id.Value,
+                user.Email.Value,
                 "verification-token",
                 Arg.Any<CancellationToken>()
             );
@@ -623,23 +456,13 @@ public class AuthServiceTests
     public async Task ResendVerificationAsync_VerifiedUser_ReturnsSentButDoesNothing()
     {
         var ctx = CreateSut();
-        var user = CreateUser(email: "test@example.com", passwordHash: "hashed-password");
-
-        ctx.UserRepository
-            .GetByEmailAsync(default!, default)
-            .ReturnsForAnyArgs(
-                (Func<CallInfo, Task<DomainUser?>>)(_ => Task.FromResult<DomainUser?>(user))
-            );
+        var user = CreateVerifiedUser(ctx.Clock);
+        GivenUserByEmail(ctx, user);
 
         var result = await ctx.Sut.ResendVerificationAsync("test@example.com");
 
         result.Should().BeOfType<AuthResult.EmailVerificationSent>();
-        await ctx.EmailVerificationTokenRepository
-            .DidNotReceiveWithAnyArgs()
-            .DeleteAllForUserAsync(default, default);
-        await ctx.EmailVerificationTokenRepository
-            .DidNotReceiveWithAnyArgs()
-            .StoreAsync(default, default!, default, default);
+        await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
         await ctx.EmailWorkflowStarter
             .DidNotReceiveWithAnyArgs()
             .StartVerificationWorkflowAsync(default, default!, default!, default);
@@ -650,22 +473,12 @@ public class AuthServiceTests
     public async Task ResendVerificationAsync_MissingUser_ReturnsSentButDoesNothing()
     {
         var ctx = CreateSut();
-
-        ctx.UserRepository
-            .GetByEmailAsync(default!, default)
-            .ReturnsForAnyArgs(
-                (Func<CallInfo, Task<DomainUser?>>)(_ => Task.FromResult<DomainUser?>(null))
-            );
+        GivenUserByEmail(ctx, null);
 
         var result = await ctx.Sut.ResendVerificationAsync("missing@example.com");
 
         result.Should().BeOfType<AuthResult.EmailVerificationSent>();
-        await ctx.EmailVerificationTokenRepository
-            .DidNotReceiveWithAnyArgs()
-            .DeleteAllForUserAsync(default, default);
-        await ctx.EmailVerificationTokenRepository
-            .DidNotReceiveWithAnyArgs()
-            .StoreAsync(default, default!, default, default);
+        await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
         await ctx.EmailWorkflowStarter
             .DidNotReceiveWithAnyArgs()
             .StartVerificationWorkflowAsync(default, default!, default!, default);
@@ -673,40 +486,30 @@ public class AuthServiceTests
     }
 
     [Fact]
-    public async Task ForgotPasswordAsync_VerifiedUser_DeletesOldTokensStartsWorkflow()
+    public async Task ForgotPasswordAsync_VerifiedUser_IssuesResetTokenAndStartsWorkflow()
     {
         var ctx = CreateSut();
-        var user = CreateUser(email: "test@example.com", passwordHash: "hashed-password");
-
-        ctx.UserRepository
-            .GetByEmailAsync(default!, default)
-            .ReturnsForAnyArgs(
-                (Func<CallInfo, Task<DomainUser?>>)(_ => Task.FromResult<DomainUser?>(user))
-            );
-        ctx.SecureTokenGenerator.Generate().Returns(("reset-token", "hashed-reset-token"));
+        var user = CreateVerifiedUser(ctx.Clock);
+        user.IssuePasswordResetToken(
+            TokenHash.From("old-reset-hash"),
+            ctx.Clock.UtcNow.AddHours(1),
+            ctx.Clock
+        );
+        GivenUserByEmail(ctx, user);
+        ctx.SecureTokenGenerator.Generate().Returns(("reset-token", "new-reset-hash"));
 
         var result = await ctx.Sut.ForgotPasswordAsync(" Test@Example.COM ");
 
         result.Should().BeOfType<AuthResult.PasswordResetSent>();
-        await ctx.UserRepository
-            .Received(1)
-            .GetByEmailAsync("test@example.com", Arg.Any<CancellationToken>());
-        await ctx.PasswordResetTokenRepository
-            .Received(1)
-            .DeleteAllForUserAsync(user.Id, Arg.Any<CancellationToken>());
-        await ctx.PasswordResetTokenRepository
-            .Received(1)
-            .StoreAsync(
-                user.Id,
-                "hashed-reset-token",
-                Arg.Any<DateTimeOffset>(),
-                Arg.Any<CancellationToken>()
-            );
+        var resetToken = user.PasswordResetTokens.Should().ContainSingle().Which;
+        resetToken.TokenHash.Should().Be(TokenHash.From("new-reset-hash"));
+        resetToken.ExpiresAt.Should().Be(ctx.Clock.UtcNow.AddMinutes(60));
+        await ctx.UserRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
         await ctx.EmailWorkflowStarter
             .Received(1)
             .StartPasswordResetWorkflowAsync(
-                user.Id,
-                user.Email,
+                user.Id.Value,
+                user.Email.Value,
                 "reset-token",
                 Arg.Any<CancellationToken>()
             );
@@ -716,27 +519,14 @@ public class AuthServiceTests
     public async Task ForgotPasswordAsync_UnverifiedUser_ReturnsSentButDoesNothing()
     {
         var ctx = CreateSut();
-        var user = CreateUser(
-            email: "test@example.com",
-            passwordHash: "hashed-password",
-            emailVerified: false
-        );
-
-        ctx.UserRepository
-            .GetByEmailAsync(default!, default)
-            .ReturnsForAnyArgs(
-                (Func<CallInfo, Task<DomainUser?>>)(_ => Task.FromResult<DomainUser?>(user))
-            );
+        var user = CreateUnverifiedUser(ctx.Clock);
+        GivenUserByEmail(ctx, user);
 
         var result = await ctx.Sut.ForgotPasswordAsync("test@example.com");
 
         result.Should().BeOfType<AuthResult.PasswordResetSent>();
-        await ctx.PasswordResetTokenRepository
-            .DidNotReceiveWithAnyArgs()
-            .DeleteAllForUserAsync(default, default);
-        await ctx.PasswordResetTokenRepository
-            .DidNotReceiveWithAnyArgs()
-            .StoreAsync(default, default!, default, default);
+        user.PasswordResetTokens.Should().BeEmpty();
+        await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
         await ctx.EmailWorkflowStarter
             .DidNotReceiveWithAnyArgs()
             .StartPasswordResetWorkflowAsync(default, default!, default!, default);
@@ -747,22 +537,12 @@ public class AuthServiceTests
     public async Task ForgotPasswordAsync_MissingUser_ReturnsSentButDoesNothing()
     {
         var ctx = CreateSut();
-
-        ctx.UserRepository
-            .GetByEmailAsync(default!, default)
-            .ReturnsForAnyArgs(
-                (Func<CallInfo, Task<DomainUser?>>)(_ => Task.FromResult<DomainUser?>(null))
-            );
+        GivenUserByEmail(ctx, null);
 
         var result = await ctx.Sut.ForgotPasswordAsync("missing@example.com");
 
         result.Should().BeOfType<AuthResult.PasswordResetSent>();
-        await ctx.PasswordResetTokenRepository
-            .DidNotReceiveWithAnyArgs()
-            .DeleteAllForUserAsync(default, default);
-        await ctx.PasswordResetTokenRepository
-            .DidNotReceiveWithAnyArgs()
-            .StoreAsync(default, default!, default, default);
+        await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
         await ctx.EmailWorkflowStarter
             .DidNotReceiveWithAnyArgs()
             .StartPasswordResetWorkflowAsync(default, default!, default!, default);
@@ -770,60 +550,35 @@ public class AuthServiceTests
     }
 
     [Fact]
-    public async Task ResetPasswordAsync_ValidToken_ReturnsSuccessUpdatesPasswordRevokesAllRefreshTokens()
+    public async Task ResetPasswordAsync_ValidToken_UpdatesPasswordRevokesAllSessionsAndReturnsSuccess()
     {
         var ctx = CreateSut();
-        var user = CreateUser(email: "test@example.com", passwordHash: "old-hash");
-        var stored = CreatePasswordResetToken(user.Id, TokenHasher.Hash("reset-token"));
-
-        ctx.PasswordResetTokenRepository
-            .FindByTokenHashAsync(default!, default)
-            .ReturnsForAnyArgs(
-                (Func<CallInfo, Task<DomainPasswordResetToken?>>)(
-                    _ => Task.FromResult<DomainPasswordResetToken?>(stored)
-                )
-            );
-        ctx.PasswordHasher.Hash("new-password").Returns("new-hashed-password");
-        ctx.UserRepository
-            .GetByIdAsync(default, default)
-            .ReturnsForAnyArgs(
-                (Func<CallInfo, Task<DomainUser?>>)(_ => Task.FromResult<DomainUser?>(user))
-            );
-        ctx.AccessTokenService.Generate(user.Id, user.Email).Returns(TestToken);
-        ctx.SecureTokenGenerator.Generate().Returns(("fresh-refresh-token", "fresh-hashed-token"));
+        var user = CreateVerifiedUser(ctx.Clock);
+        var resetHash = TokenHash.From(TokenHasher.Hash("reset-token"));
+        var resetToken = user.IssuePasswordResetToken(resetHash, ctx.Clock.UtcNow.AddHours(1), ctx.Clock);
+        GivenUserByResetToken(ctx, user);
+        ctx.PasswordHasher.Hash("new-password").Returns("new-password-hash");
+        ctx.SecureTokenGenerator.Generate().Returns(("fresh-refresh-token", "fresh-refresh-hash"));
 
         var result = await ctx.Sut.ResetPasswordAsync("reset-token", "new-password");
 
         var success = result.Should().BeOfType<AuthResult.Success>().Subject;
-        success.UserId.Should().Be(user.Id);
-        success.Email.Should().Be(user.Email);
-        success.AccessToken.Should().Be(TestToken);
+        success.UserId.Should().Be(user.Id.Value);
+        success.Email.Should().Be(user.Email.Value);
+        success.AccessToken.Should().Be(TestAccessToken);
         success.RefreshToken.Should().Be("fresh-refresh-token");
-        await ctx.PasswordResetTokenRepository
+        user.PasswordHash.Value.Should().Be("new-password-hash");
+        resetToken.ConsumedAt.Should().Be(ctx.Clock.UtcNow);
+        await ctx.UserRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await ctx.UserSessionRepository
             .Received(1)
-            .FindByTokenHashAsync(TokenHasher.Hash("reset-token"), Arg.Any<CancellationToken>());
-        await ctx.PasswordResetTokenRepository
+            .RevokeAllForUserAsync(user.Id, Arg.Any<CancellationToken>());
+        await ctx.UserSessionRepository
             .Received(1)
-            .TryConsumeAsync(stored.Id, Arg.Any<CancellationToken>());
-        ctx.PasswordHasher.Received(1).Hash("new-password");
-        await ctx.UserRepository
-            .Received(1)
-            .UpdatePasswordHashAsync(
-                stored.UserId,
-                "new-hashed-password",
-                Arg.Any<CancellationToken>()
-            );
-        await ctx.RefreshTokenRepository
-            .Received(1)
-            .RevokeAllForUserAsync(stored.UserId, Arg.Any<CancellationToken>());
-        await ctx.UserRepository.DidNotReceiveWithAnyArgs().MarkEmailVerifiedAsync(default, default);
-        ctx.AccessTokenService.Received(1).Generate(user.Id, user.Email);
-        await ctx.RefreshTokenRepository
-            .Received(1)
-            .StoreAsync(
-                user.Id,
-                "fresh-hashed-token",
-                Arg.Any<DateTimeOffset>(),
+            .AddAsync(
+                Arg.Is<DomainUserSession>(session =>
+                    IsIssuedSession(session, user.Id, "fresh-refresh-hash", ctx.Clock.UtcNow)
+                ),
                 Arg.Any<CancellationToken>()
             );
     }
@@ -832,190 +587,165 @@ public class AuthServiceTests
     public async Task ResetPasswordAsync_UnknownToken_ReturnsInvalidResetToken()
     {
         var ctx = CreateSut();
-
-        ctx.PasswordResetTokenRepository
-            .FindByTokenHashAsync(default!, default)
-            .ReturnsForAnyArgs(
-                (Func<CallInfo, Task<DomainPasswordResetToken?>>)(
-                    _ => Task.FromResult<DomainPasswordResetToken?>(null)
-                )
-            );
+        GivenUserByResetToken(ctx, null);
 
         var result = await ctx.Sut.ResetPasswordAsync("missing-token", "new-password");
 
         result.Should().BeOfType<AuthResult.InvalidResetToken>();
-        await ctx.PasswordResetTokenRepository
-            .Received(1)
-            .FindByTokenHashAsync(TokenHasher.Hash("missing-token"), Arg.Any<CancellationToken>());
-        await ctx.PasswordResetTokenRepository
-            .DidNotReceiveWithAnyArgs()
-            .TryConsumeAsync(default, default);
-        ctx.PasswordHasher.DidNotReceiveWithAnyArgs().Hash(default!);
         await ctx.UserRepository
-            .DidNotReceiveWithAnyArgs()
-            .UpdatePasswordHashAsync(default, default!, default);
-        await ctx.RefreshTokenRepository
+            .Received(1)
+            .GetByPasswordResetTokenHashAsync(
+                TokenHash.From(TokenHasher.Hash("missing-token")),
+                Arg.Any<CancellationToken>()
+            );
+        ctx.PasswordHasher.DidNotReceiveWithAnyArgs().Hash(default!);
+        await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.UserSessionRepository
             .DidNotReceiveWithAnyArgs()
             .RevokeAllForUserAsync(default, default);
+        await ctx.UserSessionRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
         ctx.AccessTokenService.DidNotReceiveWithAnyArgs().Generate(default, default!);
-        ctx.SecureTokenGenerator.DidNotReceiveWithAnyArgs().Generate();
     }
 
     [Fact]
     public async Task ResetPasswordAsync_ConsumedToken_ReturnsInvalidResetToken()
     {
         var ctx = CreateSut();
-        var stored = CreatePasswordResetToken(
-            Guid.NewGuid(),
-            TokenHasher.Hash("consumed-reset-token"),
-            consumedAt: DateTimeOffset.UtcNow.AddMinutes(-1)
-        );
-
-        ctx.PasswordResetTokenRepository
-            .FindByTokenHashAsync(default!, default)
-            .ReturnsForAnyArgs(
-                (Func<CallInfo, Task<DomainPasswordResetToken?>>)(
-                    _ => Task.FromResult<DomainPasswordResetToken?>(stored)
-                )
-            );
+        var user = CreateVerifiedUser(ctx.Clock);
+        var hash = TokenHash.From(TokenHasher.Hash("consumed-reset-token"));
+        user.IssuePasswordResetToken(hash, ctx.Clock.UtcNow.AddHours(1), ctx.Clock);
+        user.ResetPassword(hash, PasswordHash.From("temporary-new-hash"), ctx.Clock).Should().BeTrue();
+        GivenUserByResetToken(ctx, user);
 
         var result = await ctx.Sut.ResetPasswordAsync("consumed-reset-token", "new-password");
 
         result.Should().BeOfType<AuthResult.InvalidResetToken>();
-        await ctx.PasswordResetTokenRepository
-            .DidNotReceiveWithAnyArgs()
-            .TryConsumeAsync(default, default);
         ctx.PasswordHasher.DidNotReceiveWithAnyArgs().Hash(default!);
-        await ctx.UserRepository
-            .DidNotReceiveWithAnyArgs()
-            .UpdatePasswordHashAsync(default, default!, default);
-        await ctx.RefreshTokenRepository
+        await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.UserSessionRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
+        await ctx.UserSessionRepository
             .DidNotReceiveWithAnyArgs()
             .RevokeAllForUserAsync(default, default);
         ctx.AccessTokenService.DidNotReceiveWithAnyArgs().Generate(default, default!);
-        ctx.SecureTokenGenerator.DidNotReceiveWithAnyArgs().Generate();
     }
 
     [Fact]
     public async Task ResetPasswordAsync_ExpiredToken_ReturnsResetTokenExpired()
     {
         var ctx = CreateSut();
-        var stored = CreatePasswordResetToken(
-            Guid.NewGuid(),
-            TokenHasher.Hash("expired-reset-token"),
-            expiresAt: DateTimeOffset.UtcNow.AddMinutes(-1)
-        );
-
-        ctx.PasswordResetTokenRepository
-            .FindByTokenHashAsync(default!, default)
-            .ReturnsForAnyArgs(
-                (Func<CallInfo, Task<DomainPasswordResetToken?>>)(
-                    _ => Task.FromResult<DomainPasswordResetToken?>(stored)
-                )
-            );
+        var user = CreateVerifiedUser(ctx.Clock);
+        var hash = TokenHash.From(TokenHasher.Hash("expired-reset-token"));
+        var token = user.IssuePasswordResetToken(hash, ctx.Clock.UtcNow.AddMinutes(-1), ctx.Clock);
+        GivenUserByResetToken(ctx, user);
 
         var result = await ctx.Sut.ResetPasswordAsync("expired-reset-token", "new-password");
 
         result.Should().BeOfType<AuthResult.ResetTokenExpired>();
-        await ctx.PasswordResetTokenRepository
-            .DidNotReceiveWithAnyArgs()
-            .TryConsumeAsync(default, default);
+        token.ConsumedAt.Should().BeNull();
         ctx.PasswordHasher.DidNotReceiveWithAnyArgs().Hash(default!);
-        await ctx.UserRepository
-            .DidNotReceiveWithAnyArgs()
-            .UpdatePasswordHashAsync(default, default!, default);
-        await ctx.RefreshTokenRepository
+        await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.UserSessionRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
+        await ctx.UserSessionRepository
             .DidNotReceiveWithAnyArgs()
             .RevokeAllForUserAsync(default, default);
         ctx.AccessTokenService.DidNotReceiveWithAnyArgs().Generate(default, default!);
-        ctx.SecureTokenGenerator.DidNotReceiveWithAnyArgs().Generate();
     }
 
     [Fact]
-    public async Task ResetPasswordAsync_ConsumeRace_ReturnsInvalidResetToken()
+    public async Task ResetPasswordAsync_SaveChangesThrowsConcurrencyConflict_ReturnsInvalid()
     {
         var ctx = CreateSut();
-        var stored = CreatePasswordResetToken(Guid.NewGuid(), TokenHasher.Hash("race-reset-token"));
-
-        ctx.PasswordResetTokenRepository
-            .FindByTokenHashAsync(default!, default)
-            .ReturnsForAnyArgs(
-                (Func<CallInfo, Task<DomainPasswordResetToken?>>)(
-                    _ => Task.FromResult<DomainPasswordResetToken?>(stored)
-                )
-            );
-        ctx.PasswordResetTokenRepository
-            .TryConsumeAsync(default, default)
-            .ReturnsForAnyArgs((Func<CallInfo, Task<bool>>)(_ => Task.FromResult(false)));
+        var user = CreateVerifiedUser(ctx.Clock);
+        var hash = TokenHash.From(TokenHasher.Hash("race-reset-token"));
+        user.IssuePasswordResetToken(hash, ctx.Clock.UtcNow.AddHours(1), ctx.Clock);
+        GivenUserByResetToken(ctx, user);
+        ctx.PasswordHasher.Hash("new-password").Returns("new-password-hash");
+        ctx.UserRepository
+            .When(x => x.SaveChangesAsync(Arg.Any<CancellationToken>()))
+            .Do(_ => throw new ConcurrencyConflictException("test"));
 
         var result = await ctx.Sut.ResetPasswordAsync("race-reset-token", "new-password");
 
         result.Should().BeOfType<AuthResult.InvalidResetToken>();
-        await ctx.PasswordResetTokenRepository
-            .Received(1)
-            .TryConsumeAsync(stored.Id, Arg.Any<CancellationToken>());
-        ctx.PasswordHasher.DidNotReceiveWithAnyArgs().Hash(default!);
-        await ctx.UserRepository
-            .DidNotReceiveWithAnyArgs()
-            .UpdatePasswordHashAsync(default, default!, default);
-        await ctx.RefreshTokenRepository
+        user.PasswordHash.Value.Should().Be("new-password-hash");
+        user.PasswordResetTokens.Single().ConsumedAt.Should().Be(ctx.Clock.UtcNow);
+        await ctx.UserSessionRepository
             .DidNotReceiveWithAnyArgs()
             .RevokeAllForUserAsync(default, default);
-        await ctx.UserRepository.DidNotReceiveWithAnyArgs().MarkEmailVerifiedAsync(default, default);
+        await ctx.UserSessionRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
         ctx.AccessTokenService.DidNotReceiveWithAnyArgs().Generate(default, default!);
         ctx.SecureTokenGenerator.DidNotReceiveWithAnyArgs().Generate();
     }
 
-    private static SutContext CreateSut()
+    private static SutContext CreateSut(FakeClock? clock = null)
     {
+        clock ??= new FakeClock(TestNow);
         var userRepository = Substitute.For<IUserRepository>();
+        var userSessionRepository = Substitute.For<IUserSessionRepository>();
         var passwordHasher = Substitute.For<IPasswordHasher>();
-        passwordHasher.Hash(default!).ReturnsForAnyArgs("dummy-hash");
-        passwordHasher.Verify(default!, default!).ReturnsForAnyArgs(false);
-        passwordHasher.DummyHash.Returns("dummy-hash");
         var accessTokenService = Substitute.For<IAccessTokenService>();
-        var refreshTokenRepository = Substitute.For<IRefreshTokenRepository>();
-        var refreshTokenGenerator = Substitute.For<ISecureTokenGenerator>();
-        var emailVerificationTokenRepository = Substitute.For<IEmailVerificationTokenRepository>();
-        var passwordResetTokenRepository = Substitute.For<IPasswordResetTokenRepository>();
+        var secureTokenGenerator = Substitute.For<ISecureTokenGenerator>();
         var emailWorkflowStarter = Substitute.For<IEmailWorkflowStarter>();
 
         userRepository
-            .MarkEmailVerifiedAsync(default, default)
+            .GetByIdAsync(default, default)
+            .ReturnsForAnyArgs(
+                (Func<CallInfo, Task<DomainUser?>>)(_ => Task.FromResult<DomainUser?>(null))
+            );
+        userRepository
+            .GetByEmailAsync(default!, default)
+            .ReturnsForAnyArgs(
+                (Func<CallInfo, Task<DomainUser?>>)(_ => Task.FromResult<DomainUser?>(null))
+            );
+        userRepository
+            .GetByEmailVerificationTokenHashAsync(default!, default)
+            .ReturnsForAnyArgs(
+                (Func<CallInfo, Task<DomainUser?>>)(_ => Task.FromResult<DomainUser?>(null))
+            );
+        userRepository
+            .GetByPasswordResetTokenHashAsync(default!, default)
+            .ReturnsForAnyArgs(
+                (Func<CallInfo, Task<DomainUser?>>)(_ => Task.FromResult<DomainUser?>(null))
+            );
+        userRepository
+            .AddAsync(default!, default)
             .ReturnsForAnyArgs((Func<CallInfo, Task>)(_ => Task.CompletedTask));
         userRepository
-            .UpdatePasswordHashAsync(default, default!, default)
+            .SaveChangesAsync(default)
             .ReturnsForAnyArgs((Func<CallInfo, Task>)(_ => Task.CompletedTask));
 
-        refreshTokenRepository
-            .StoreAsync(default, default!, default, default)
+        userSessionRepository
+            .GetByTokenHashAsync(default!, default)
+            .ReturnsForAnyArgs(
+                (Func<CallInfo, Task<DomainUserSession?>>)(
+                    _ => Task.FromResult<DomainUserSession?>(null)
+                )
+            );
+        userSessionRepository
+            .GetActiveByUserIdAsync(default, default)
+            .ReturnsForAnyArgs(
+                (Func<CallInfo, Task<IReadOnlyList<DomainUserSession>>>)(
+                    _ => Task.FromResult<IReadOnlyList<DomainUserSession>>(
+                        Array.Empty<DomainUserSession>()
+                    )
+                )
+            );
+        userSessionRepository
+            .AddAsync(default!, default)
             .ReturnsForAnyArgs((Func<CallInfo, Task>)(_ => Task.CompletedTask));
-        refreshTokenRepository
-            .TryRevokeAsync(default, default)
-            .ReturnsForAnyArgs((Func<CallInfo, Task<bool>>)(_ => Task.FromResult(true)));
-        refreshTokenRepository
+        userSessionRepository
             .RevokeAllForUserAsync(default, default)
             .ReturnsForAnyArgs((Func<CallInfo, Task>)(_ => Task.CompletedTask));
-
-        emailVerificationTokenRepository
-            .StoreAsync(default, default!, default, default)
-            .ReturnsForAnyArgs((Func<CallInfo, Task>)(_ => Task.CompletedTask));
-        emailVerificationTokenRepository
-            .TryConsumeAsync(default, default)
-            .ReturnsForAnyArgs((Func<CallInfo, Task<bool>>)(_ => Task.FromResult(true)));
-        emailVerificationTokenRepository
-            .DeleteAllForUserAsync(default, default)
+        userSessionRepository
+            .SaveChangesAsync(default)
             .ReturnsForAnyArgs((Func<CallInfo, Task>)(_ => Task.CompletedTask));
 
-        passwordResetTokenRepository
-            .StoreAsync(default, default!, default, default)
-            .ReturnsForAnyArgs((Func<CallInfo, Task>)(_ => Task.CompletedTask));
-        passwordResetTokenRepository
-            .TryConsumeAsync(default, default)
-            .ReturnsForAnyArgs((Func<CallInfo, Task<bool>>)(_ => Task.FromResult(true)));
-        passwordResetTokenRepository
-            .DeleteAllForUserAsync(default, default)
-            .ReturnsForAnyArgs((Func<CallInfo, Task>)(_ => Task.CompletedTask));
+        passwordHasher.Hash(default!).ReturnsForAnyArgs("hashed-password");
+        passwordHasher.Verify(default!, default!).ReturnsForAnyArgs(false);
+        passwordHasher.DummyHash.Returns("dummy-hash");
+
+        accessTokenService.Generate(default, default!).ReturnsForAnyArgs(TestAccessToken);
+        secureTokenGenerator.Generate().Returns(("generated-token", "generated-token-hash"));
 
         emailWorkflowStarter
             .StartVerificationWorkflowAsync(default, default!, default!, default)
@@ -1026,102 +756,103 @@ public class AuthServiceTests
 
         var sut = new AuthService(
             userRepository,
+            userSessionRepository,
             passwordHasher,
             accessTokenService,
-            refreshTokenRepository,
-            refreshTokenGenerator,
-            emailVerificationTokenRepository,
-            passwordResetTokenRepository,
-            emailWorkflowStarter
+            secureTokenGenerator,
+            emailWorkflowStarter,
+            clock
         );
 
         return new SutContext(
             sut,
             userRepository,
+            userSessionRepository,
             passwordHasher,
             accessTokenService,
-            refreshTokenRepository,
-            refreshTokenGenerator,
-            emailVerificationTokenRepository,
-            passwordResetTokenRepository,
-            emailWorkflowStarter
+            secureTokenGenerator,
+            emailWorkflowStarter,
+            clock
         );
     }
 
-    private static DomainUser CreateUser(string email, string passwordHash, bool emailVerified = true) =>
-        new()
-        {
-            Id = Guid.NewGuid(),
-            Email = email,
-            PasswordHash = passwordHash,
-            EmailVerified = emailVerified,
-            CreatedAt = DateTimeOffset.UtcNow,
-            UpdatedAt = DateTimeOffset.UtcNow,
-        };
+    private static DomainUser CreateVerifiedUser(IClock clock)
+    {
+        var user = CreateUnverifiedUser(clock);
+        var hash = TokenHash.From("verified-email-token-hash");
+        user.IssueEmailVerificationToken(hash, clock.UtcNow.AddHours(1), clock);
+        user.VerifyEmail(hash, clock).Should().BeTrue();
+        return user;
+    }
 
-    private static DomainRefreshToken CreateRefreshToken(
-        Guid userId,
-        string tokenHash,
-        DateTimeOffset? expiresAt = null,
-        DateTimeOffset? revokedAt = null
+    private static DomainUser CreateUnverifiedUser(IClock clock) =>
+        DomainUser.Register(
+            Email.Normalize("test@example.com"),
+            PasswordHash.From("hashed-password"),
+            clock
+        );
+
+    private static DomainUserSession CreateSession(
+        UserId userId,
+        string plainRefreshToken,
+        IClock clock,
+        DateTimeOffset? expiresAt = null
     ) =>
-        new()
-        {
-            Id = Guid.NewGuid(),
-            UserId = userId,
-            TokenHash = tokenHash,
-            ExpiresAt = expiresAt ?? DateTimeOffset.UtcNow.AddDays(1),
-            CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-5),
-            RevokedAt = revokedAt,
-        };
+        DomainUserSession.Issue(
+            userId,
+            TokenHash.From(TokenHasher.Hash(plainRefreshToken)),
+            expiresAt ?? clock.UtcNow.AddDays(1),
+            clock
+        );
 
-    private static DomainEmailVerificationToken CreateEmailVerificationToken(
-        Guid userId,
-        string tokenHash,
-        DateTimeOffset? expiresAt = null,
-        DateTimeOffset? consumedAt = null
+    private static void GivenUserByEmail(SutContext ctx, DomainUser? user) =>
+        ctx.UserRepository
+            .GetByEmailAsync(default!, default)
+            .ReturnsForAnyArgs((Func<CallInfo, Task<DomainUser?>>)(_ => Task.FromResult(user)));
+
+    private static void GivenUserById(SutContext ctx, DomainUser? user) =>
+        ctx.UserRepository
+            .GetByIdAsync(default, default)
+            .ReturnsForAnyArgs((Func<CallInfo, Task<DomainUser?>>)(_ => Task.FromResult(user)));
+
+    private static void GivenUserByVerificationToken(SutContext ctx, DomainUser? user) =>
+        ctx.UserRepository
+            .GetByEmailVerificationTokenHashAsync(default!, default)
+            .ReturnsForAnyArgs((Func<CallInfo, Task<DomainUser?>>)(_ => Task.FromResult(user)));
+
+    private static void GivenUserByResetToken(SutContext ctx, DomainUser? user) =>
+        ctx.UserRepository
+            .GetByPasswordResetTokenHashAsync(default!, default)
+            .ReturnsForAnyArgs((Func<CallInfo, Task<DomainUser?>>)(_ => Task.FromResult(user)));
+
+    private static void GivenSessionByRefreshToken(SutContext ctx, DomainUserSession? session) =>
+        ctx.UserSessionRepository
+            .GetByTokenHashAsync(default!, default)
+            .ReturnsForAnyArgs(
+                (Func<CallInfo, Task<DomainUserSession?>>)(_ => Task.FromResult(session))
+            );
+
+    private static bool IsIssuedSession(
+        DomainUserSession? session,
+        UserId userId,
+        string hashedToken,
+        DateTimeOffset now
     ) =>
-        new()
-        {
-            Id = Guid.NewGuid(),
-            UserId = userId,
-            TokenHash = tokenHash,
-            ExpiresAt = expiresAt ?? DateTimeOffset.UtcNow.AddHours(1),
-            CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-5),
-            ConsumedAt = consumedAt,
-        };
-
-    private static DomainPasswordResetToken CreatePasswordResetToken(
-        Guid userId,
-        string tokenHash,
-        DateTimeOffset? expiresAt = null,
-        DateTimeOffset? consumedAt = null
-    ) =>
-        new()
-        {
-            Id = Guid.NewGuid(),
-            UserId = userId,
-            TokenHash = tokenHash,
-            ExpiresAt = expiresAt ?? DateTimeOffset.UtcNow.AddHours(1),
-            CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-5),
-            ConsumedAt = consumedAt,
-        };
-
-    private static bool IsSevenDayExpiry(
-        DateTimeOffset expiresAt,
-        DateTimeOffset before,
-        DateTimeOffset after
-    ) => expiresAt >= before.AddDays(7) && expiresAt <= after.AddDays(7).AddSeconds(1);
+        session is not null
+        && session.UserId == userId
+        && session.TokenHash == TokenHash.From(hashedToken)
+        && session.CreatedAt == now
+        && session.ExpiresAt == now.AddDays(7)
+        && session.IsActive(now);
 
     private sealed record SutContext(
         AuthService Sut,
         IUserRepository UserRepository,
+        IUserSessionRepository UserSessionRepository,
         IPasswordHasher PasswordHasher,
         IAccessTokenService AccessTokenService,
-        IRefreshTokenRepository RefreshTokenRepository,
         ISecureTokenGenerator SecureTokenGenerator,
-        IEmailVerificationTokenRepository EmailVerificationTokenRepository,
-        IPasswordResetTokenRepository PasswordResetTokenRepository,
-        IEmailWorkflowStarter EmailWorkflowStarter
+        IEmailWorkflowStarter EmailWorkflowStarter,
+        FakeClock Clock
     );
 }
