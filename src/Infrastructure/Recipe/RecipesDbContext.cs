@@ -4,7 +4,6 @@ using Infrastructure.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Pgvector.EntityFrameworkCore;
-using DomainUser = Domain.Identity.User;
 
 namespace Infrastructure.Recipe;
 
@@ -15,7 +14,7 @@ public sealed class RecipesDbContext(DbContextOptions<RecipesDbContext> options)
     public DbSet<RecipeIngredientEntity> RecipeIngredients => Set<RecipeIngredientEntity>();
     public DbSet<RecipeInstructionEntity> RecipeInstructions => Set<RecipeInstructionEntity>();
     public DbSet<RecipeEmbeddingEntity> RecipeEmbeddings => Set<RecipeEmbeddingEntity>();
-    public DbSet<DomainUser> Users => Set<DomainUser>();
+    public DbSet<User> Users => Set<User>();
     public DbSet<RecipeFavoriteEntity> RecipeFavorites => Set<RecipeFavoriteEntity>();
     public DbSet<UserSession> UserSessions => Set<UserSession>();
     public DbSet<EmailVerificationToken> EmailVerificationTokens => Set<EmailVerificationToken>();
@@ -82,7 +81,7 @@ public sealed class RecipesDbContext(DbContextOptions<RecipesDbContext> options)
             entity.HasOne(e => e.Recipe).WithMany().HasForeignKey(e => e.RecipeId);
         });
 
-        modelBuilder.Entity<DomainUser>(entity =>
+        modelBuilder.Entity<User>(entity =>
         {
             entity.ToTable("Users");
             entity.HasKey(e => e.Id);
@@ -107,7 +106,7 @@ public sealed class RecipesDbContext(DbContextOptions<RecipesDbContext> options)
                 .HasForeignKey(t => t.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
             entity
-                .Metadata.FindNavigation(nameof(DomainUser.EmailVerificationTokens))!
+                .Metadata.FindNavigation(nameof(User.EmailVerificationTokens))!
                 .SetPropertyAccessMode(PropertyAccessMode.Field);
 
             entity
@@ -116,7 +115,7 @@ public sealed class RecipesDbContext(DbContextOptions<RecipesDbContext> options)
                 .HasForeignKey(t => t.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
             entity
-                .Metadata.FindNavigation(nameof(DomainUser.PasswordResetTokens))!
+                .Metadata.FindNavigation(nameof(User.PasswordResetTokens))!
                 .SetPropertyAccessMode(PropertyAccessMode.Field);
         });
 
@@ -176,7 +175,7 @@ public sealed class RecipesDbContext(DbContextOptions<RecipesDbContext> options)
             entity.HasIndex(e => e.TokenHash).IsUnique();
             entity.HasIndex(e => e.UserId);
             entity
-                .HasOne<DomainUser>()
+                .HasOne<User>()
                 .WithMany()
                 .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
@@ -188,7 +187,7 @@ public sealed class RecipesDbContext(DbContextOptions<RecipesDbContext> options)
             entity.Property(e => e.CreatedAt).IsRequired();
             entity.HasIndex(e => e.RecipeId);
             entity
-                .HasOne<DomainUser>()
+                .HasOne<User>()
                 .WithMany()
                 .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.Cascade);

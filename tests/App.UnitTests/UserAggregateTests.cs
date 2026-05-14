@@ -1,6 +1,6 @@
 using AwesomeAssertions;
+using Domain.Identity;
 using Xunit;
-using DomainUser = Domain.Identity.User;
 
 namespace App.UnitTests;
 
@@ -15,7 +15,7 @@ public class UserAggregateTests
         var email = Domain.Identity.Email.Normalize(" Test@Example.COM ");
         var passwordHash = Domain.Identity.PasswordHash.From("hashed-password");
 
-        var user = DomainUser.Register(email, passwordHash, clock);
+        var user = User.Register(email, passwordHash, clock);
 
         user.Id.Value.Should().NotBeEmpty();
         user.Email.Should().Be(email);
@@ -289,8 +289,8 @@ public class UserAggregateTests
         token.ConsumedAt.Should().BeNull();
     }
 
-    private static DomainUser CreateUser(FakeClock clock) =>
-        DomainUser.Register(
+    private static User CreateUser(FakeClock clock) =>
+        User.Register(
             Domain.Identity.Email.Normalize("test@example.com"),
             Domain.Identity.PasswordHash.From("hashed-password"),
             clock

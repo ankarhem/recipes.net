@@ -2,21 +2,20 @@ using App.Identity;
 using Domain.Identity;
 using Infrastructure.Recipe;
 using Microsoft.EntityFrameworkCore;
-using DomainUser = Domain.Identity.User;
 
 namespace Infrastructure.Identity;
 
 public sealed class UserRepository(RecipesDbContext db) : IUserRepository
 {
-    public Task<DomainUser?> GetByIdAsync(UserId id, CancellationToken cancellationToken = default) =>
+    public Task<User?> GetByIdAsync(UserId id, CancellationToken cancellationToken = default) =>
         QueryWithTokens().SingleOrDefaultAsync(u => u.Id == id, cancellationToken);
 
-    public Task<DomainUser?> GetByEmailAsync(
+    public Task<User?> GetByEmailAsync(
         Email email,
         CancellationToken cancellationToken = default
     ) => QueryWithTokens().SingleOrDefaultAsync(u => u.Email == email, cancellationToken);
 
-    public Task<DomainUser?> GetByEmailVerificationTokenHashAsync(
+    public Task<User?> GetByEmailVerificationTokenHashAsync(
         TokenHash hash,
         CancellationToken cancellationToken = default
     ) =>
@@ -26,7 +25,7 @@ public sealed class UserRepository(RecipesDbContext db) : IUserRepository
                 cancellationToken
             );
 
-    public Task<DomainUser?> GetByPasswordResetTokenHashAsync(
+    public Task<User?> GetByPasswordResetTokenHashAsync(
         TokenHash hash,
         CancellationToken cancellationToken = default
     ) =>
@@ -36,7 +35,7 @@ public sealed class UserRepository(RecipesDbContext db) : IUserRepository
                 cancellationToken
             );
 
-    public async Task AddAsync(DomainUser user, CancellationToken cancellationToken = default)
+    public async Task AddAsync(User user, CancellationToken cancellationToken = default)
     {
         await db.Users.AddAsync(user, cancellationToken);
     }
@@ -56,6 +55,6 @@ public sealed class UserRepository(RecipesDbContext db) : IUserRepository
         }
     }
 
-    private IQueryable<DomainUser> QueryWithTokens() =>
+    private IQueryable<User> QueryWithTokens() =>
         db.Users.Include(u => u.EmailVerificationTokens).Include(u => u.PasswordResetTokens);
 }

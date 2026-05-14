@@ -5,8 +5,6 @@ using Domain.Identity;
 using NSubstitute;
 using NSubstitute.Core;
 using Xunit;
-using DomainUser = Domain.Identity.User;
-using DomainUserSession = Domain.Identity.UserSession;
 
 namespace App.UnitTests;
 
@@ -23,13 +21,13 @@ public class AuthServiceTests
     public async Task RegisterAsync_NewEmail_ReturnsRegistrationPendingAndStartsVerificationWorkflow()
     {
         var ctx = CreateSut();
-        DomainUser? addedUser = null;
+        User? addedUser = null;
         GivenUserByEmail(ctx, null);
         ctx.PasswordHasher.Hash("password").Returns("hashed-password");
         ctx.SecureTokenGenerator.Generate().Returns(("verification-token", "hashed-verification-token"));
         ctx.UserRepository
-            .When(x => x.AddAsync(Arg.Any<DomainUser>(), Arg.Any<CancellationToken>()))
-            .Do(call => addedUser = call.Arg<DomainUser>());
+            .When(x => x.AddAsync(Arg.Any<User>(), Arg.Any<CancellationToken>()))
+            .Do(call => addedUser = call.Arg<User>());
 
         var result = await ctx.Sut.RegisterAsync(" Test@Example.COM ", "password");
 
@@ -105,7 +103,7 @@ public class AuthServiceTests
         await ctx.UserSessionRepository
             .Received(1)
             .AddAsync(
-                Arg.Is<DomainUserSession>(session =>
+                Arg.Is<UserSession>(session =>
                     IsIssuedSession(session, user.Id, "hashed-refresh-token", ctx.Clock.UtcNow)
                 ),
                 Arg.Any<CancellationToken>()
@@ -185,7 +183,7 @@ public class AuthServiceTests
         await ctx.UserSessionRepository
             .Received(1)
             .AddAsync(
-                Arg.Is<DomainUserSession>(newSession =>
+                Arg.Is<UserSession>(newSession =>
                     IsIssuedSession(newSession, user.Id, "new-hashed-token", ctx.Clock.UtcNow)
                 ),
                 Arg.Any<CancellationToken>()
@@ -335,7 +333,7 @@ public class AuthServiceTests
         await ctx.UserSessionRepository
             .Received(1)
             .AddAsync(
-                Arg.Is<DomainUserSession>(session =>
+                Arg.Is<UserSession>(session =>
                     IsIssuedSession(session, user.Id, "hashed-refresh-token", ctx.Clock.UtcNow)
                 ),
                 Arg.Any<CancellationToken>()
@@ -576,7 +574,7 @@ public class AuthServiceTests
         await ctx.UserSessionRepository
             .Received(1)
             .AddAsync(
-                Arg.Is<DomainUserSession>(session =>
+                Arg.Is<UserSession>(session =>
                     IsIssuedSession(session, user.Id, "fresh-refresh-hash", ctx.Clock.UtcNow)
                 ),
                 Arg.Any<CancellationToken>()
@@ -690,22 +688,22 @@ public class AuthServiceTests
         userRepository
             .GetByIdAsync(default, default)
             .ReturnsForAnyArgs(
-                (Func<CallInfo, Task<DomainUser?>>)(_ => Task.FromResult<DomainUser?>(null))
+                (Func<CallInfo, Task<User?>>)(_ => Task.FromResult<User?>(null))
             );
         userRepository
             .GetByEmailAsync(default!, default)
             .ReturnsForAnyArgs(
-                (Func<CallInfo, Task<DomainUser?>>)(_ => Task.FromResult<DomainUser?>(null))
+                (Func<CallInfo, Task<User?>>)(_ => Task.FromResult<User?>(null))
             );
         userRepository
             .GetByEmailVerificationTokenHashAsync(default!, default)
             .ReturnsForAnyArgs(
-                (Func<CallInfo, Task<DomainUser?>>)(_ => Task.FromResult<DomainUser?>(null))
+                (Func<CallInfo, Task<User?>>)(_ => Task.FromResult<User?>(null))
             );
         userRepository
             .GetByPasswordResetTokenHashAsync(default!, default)
             .ReturnsForAnyArgs(
-                (Func<CallInfo, Task<DomainUser?>>)(_ => Task.FromResult<DomainUser?>(null))
+                (Func<CallInfo, Task<User?>>)(_ => Task.FromResult<User?>(null))
             );
         userRepository
             .AddAsync(default!, default)
@@ -717,16 +715,16 @@ public class AuthServiceTests
         userSessionRepository
             .GetByTokenHashAsync(default!, default)
             .ReturnsForAnyArgs(
-                (Func<CallInfo, Task<DomainUserSession?>>)(
-                    _ => Task.FromResult<DomainUserSession?>(null)
+                (Func<CallInfo, Task<UserSession?>>)(
+                    _ => Task.FromResult<UserSession?>(null)
                 )
             );
         userSessionRepository
             .GetActiveByUserIdAsync(default, default)
             .ReturnsForAnyArgs(
-                (Func<CallInfo, Task<IReadOnlyList<DomainUserSession>>>)(
-                    _ => Task.FromResult<IReadOnlyList<DomainUserSession>>(
-                        Array.Empty<DomainUserSession>()
+                (Func<CallInfo, Task<IReadOnlyList<UserSession>>>)(
+                    _ => Task.FromResult<IReadOnlyList<UserSession>>(
+                        Array.Empty<UserSession>()
                     )
                 )
             );
@@ -776,7 +774,7 @@ public class AuthServiceTests
         );
     }
 
-    private static DomainUser CreateVerifiedUser(IClock clock)
+    private static User CreateVerifiedUser(IClock clock)
     {
         var user = CreateUnverifiedUser(clock);
         var hash = TokenHash.From("verified-email-token-hash");
@@ -785,55 +783,55 @@ public class AuthServiceTests
         return user;
     }
 
-    private static DomainUser CreateUnverifiedUser(IClock clock) =>
-        DomainUser.Register(
+    private static User CreateUnverifiedUser(IClock clock) =>
+        User.Register(
             Email.Normalize("test@example.com"),
             PasswordHash.From("hashed-password"),
             clock
         );
 
-    private static DomainUserSession CreateSession(
+    private static UserSession CreateSession(
         UserId userId,
         string plainRefreshToken,
         IClock clock,
         DateTimeOffset? expiresAt = null
     ) =>
-        DomainUserSession.Issue(
+        UserSession.Issue(
             userId,
             TokenHash.From(TokenHasher.Hash(plainRefreshToken)),
             expiresAt ?? clock.UtcNow.AddDays(1),
             clock
         );
 
-    private static void GivenUserByEmail(SutContext ctx, DomainUser? user) =>
+    private static void GivenUserByEmail(SutContext ctx, User? user) =>
         ctx.UserRepository
             .GetByEmailAsync(default!, default)
-            .ReturnsForAnyArgs((Func<CallInfo, Task<DomainUser?>>)(_ => Task.FromResult(user)));
+            .ReturnsForAnyArgs((Func<CallInfo, Task<User?>>)(_ => Task.FromResult(user)));
 
-    private static void GivenUserById(SutContext ctx, DomainUser? user) =>
+    private static void GivenUserById(SutContext ctx, User? user) =>
         ctx.UserRepository
             .GetByIdAsync(default, default)
-            .ReturnsForAnyArgs((Func<CallInfo, Task<DomainUser?>>)(_ => Task.FromResult(user)));
+            .ReturnsForAnyArgs((Func<CallInfo, Task<User?>>)(_ => Task.FromResult(user)));
 
-    private static void GivenUserByVerificationToken(SutContext ctx, DomainUser? user) =>
+    private static void GivenUserByVerificationToken(SutContext ctx, User? user) =>
         ctx.UserRepository
             .GetByEmailVerificationTokenHashAsync(default!, default)
-            .ReturnsForAnyArgs((Func<CallInfo, Task<DomainUser?>>)(_ => Task.FromResult(user)));
+            .ReturnsForAnyArgs((Func<CallInfo, Task<User?>>)(_ => Task.FromResult(user)));
 
-    private static void GivenUserByResetToken(SutContext ctx, DomainUser? user) =>
+    private static void GivenUserByResetToken(SutContext ctx, User? user) =>
         ctx.UserRepository
             .GetByPasswordResetTokenHashAsync(default!, default)
-            .ReturnsForAnyArgs((Func<CallInfo, Task<DomainUser?>>)(_ => Task.FromResult(user)));
+            .ReturnsForAnyArgs((Func<CallInfo, Task<User?>>)(_ => Task.FromResult(user)));
 
-    private static void GivenSessionByRefreshToken(SutContext ctx, DomainUserSession? session) =>
+    private static void GivenSessionByRefreshToken(SutContext ctx, UserSession? session) =>
         ctx.UserSessionRepository
             .GetByTokenHashAsync(default!, default)
             .ReturnsForAnyArgs(
-                (Func<CallInfo, Task<DomainUserSession?>>)(_ => Task.FromResult(session))
+                (Func<CallInfo, Task<UserSession?>>)(_ => Task.FromResult(session))
             );
 
     private static bool IsIssuedSession(
-        DomainUserSession? session,
+        UserSession? session,
         UserId userId,
         string hashedToken,
         DateTimeOffset now

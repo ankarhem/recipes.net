@@ -1,24 +1,23 @@
 using Domain.Identity;
-using DomainUser = Domain.Identity.User;
 
 namespace App.Identity;
 
 public interface IUserRepository
 {
-    Task<DomainUser?> GetByIdAsync(UserId id, CancellationToken cancellationToken = default);
-    Task<DomainUser?> GetByEmailAsync(Email email, CancellationToken cancellationToken = default);
+    Task<User?> GetByIdAsync(UserId id, CancellationToken cancellationToken = default);
+    Task<User?> GetByEmailAsync(Email email, CancellationToken cancellationToken = default);
 
-    Task<DomainUser?> GetByEmailVerificationTokenHashAsync(
+    Task<User?> GetByEmailVerificationTokenHashAsync(
         TokenHash hash,
         CancellationToken cancellationToken = default
     );
 
-    Task<DomainUser?> GetByPasswordResetTokenHashAsync(
+    Task<User?> GetByPasswordResetTokenHashAsync(
         TokenHash hash,
         CancellationToken cancellationToken = default
     );
 
-    Task AddAsync(DomainUser user, CancellationToken cancellationToken = default);
+    Task AddAsync(User user, CancellationToken cancellationToken = default);
 
     Task SaveChangesAsync(CancellationToken cancellationToken = default);
 }
