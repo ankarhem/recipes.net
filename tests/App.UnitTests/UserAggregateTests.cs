@@ -289,6 +289,105 @@ public class UserAggregateTests
         token.ConsumedAt.Should().BeNull();
     }
 
+    [Fact]
+    public void RemoveEmailVerificationToken_PresentToken_RemovesAndReturnsTrue()
+    {
+        var clock = new FakeClock(TestNow);
+        var user = CreateUser(clock);
+        var hash = Domain.Identity.TokenHash.From("verification-hash");
+        user.IssueEmailVerificationToken(hash, clock.UtcNow.AddHours(1), clock);
+
+        clock.Advance(TimeSpan.FromMinutes(5));
+        var removed = user.RemoveEmailVerificationToken(hash, clock);
+
+        removed.Should().BeTrue();
+        user.EmailVerificationTokens.Should().BeEmpty();
+        user.UpdatedAt.Should().Be(clock.UtcNow);
+    }
+
+    [Fact]
+    public void RemoveEmailVerificationToken_ConsumedToken_StillRemoves()
+    {
+        var clock = new FakeClock(TestNow);
+        var user = CreateUser(clock);
+        var hash = Domain.Identity.TokenHash.From("verification-hash");
+        user.IssueEmailVerificationToken(hash, clock.UtcNow.AddHours(1), clock);
+        user.VerifyEmail(hash, clock).Should().BeTrue();
+
+        var removed = user.RemoveEmailVerificationToken(hash, clock);
+
+        removed.Should().BeTrue();
+        user.EmailVerificationTokens.Should().BeEmpty();
+        user.EmailVerified.Should().BeTrue();
+    }
+
+    [Fact]
+    public void RemoveEmailVerificationToken_MissingHash_ReturnsFalseAndDoesNotTouchUpdatedAt()
+    {
+        var clock = new FakeClock(TestNow);
+        var user = CreateUser(clock);
+        var originalUpdatedAt = user.UpdatedAt;
+
+        clock.Advance(TimeSpan.FromMinutes(5));
+        var removed = user.RemoveEmailVerificationToken(
+            Domain.Identity.TokenHash.From("nonexistent"),
+            clock
+        );
+
+        removed.Should().BeFalse();
+        user.UpdatedAt.Should().Be(originalUpdatedAt);
+    }
+
+    [Fact]
+    public void RemovePasswordResetToken_PresentToken_RemovesAndReturnsTrue()
+    {
+        var clock = new FakeClock(TestNow);
+        var user = CreateUser(clock);
+        var hash = Domain.Identity.TokenHash.From("reset-hash");
+        user.IssuePasswordResetToken(hash, clock.UtcNow.AddHours(1), clock);
+
+        clock.Advance(TimeSpan.FromMinutes(5));
+        var removed = user.RemovePasswordResetToken(hash, clock);
+
+        removed.Should().BeTrue();
+        user.PasswordResetTokens.Should().BeEmpty();
+        user.UpdatedAt.Should().Be(clock.UtcNow);
+    }
+
+    [Fact]
+    public void RemovePasswordResetToken_ConsumedToken_StillRemoves()
+    {
+        var clock = new FakeClock(TestNow);
+        var user = CreateUser(clock);
+        var hash = Domain.Identity.TokenHash.From("reset-hash");
+        user.IssuePasswordResetToken(hash, clock.UtcNow.AddHours(1), clock);
+        user.ResetPassword(hash, Domain.Identity.PasswordHash.From("new-hash"), clock)
+            .Should()
+            .BeTrue();
+
+        var removed = user.RemovePasswordResetToken(hash, clock);
+
+        removed.Should().BeTrue();
+        user.PasswordResetTokens.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void RemovePasswordResetToken_MissingHash_ReturnsFalseAndDoesNotTouchUpdatedAt()
+    {
+        var clock = new FakeClock(TestNow);
+        var user = CreateUser(clock);
+        var originalUpdatedAt = user.UpdatedAt;
+
+        clock.Advance(TimeSpan.FromMinutes(5));
+        var removed = user.RemovePasswordResetToken(
+            Domain.Identity.TokenHash.From("nonexistent"),
+            clock
+        );
+
+        removed.Should().BeFalse();
+        user.UpdatedAt.Should().Be(originalUpdatedAt);
+    }
+
     private static User CreateUser(FakeClock clock) =>
         User.Register(
             Domain.Identity.Email.Normalize("test@example.com"),

@@ -5,6 +5,8 @@ namespace App.Identity;
 [Workflow]
 public class EmailVerificationWorkflow
 {
+    private static readonly TimeSpan CleanupDelay = TimeSpan.FromDays(30);
+
     [WorkflowRun]
     public async Task RunAsync(Guid userId, string email, string token)
     {
@@ -19,6 +21,23 @@ public class EmailVerificationWorkflow
                     BackoffCoefficient = 2.0f,
                     MaximumInterval = TimeSpan.FromSeconds(60),
                     MaximumAttempts = 5,
+                },
+            }
+        );
+
+        await Workflow.DelayAsync(CleanupDelay);
+
+        await Workflow.ExecuteActivityAsync(
+            (TokenCleanupActivities a) => a.DeleteEmailVerificationTokenAsync(token),
+            new()
+            {
+                StartToCloseTimeout = TimeSpan.FromSeconds(10),
+                RetryPolicy = new()
+                {
+                    InitialInterval = TimeSpan.FromSeconds(5),
+                    BackoffCoefficient = 2.0f,
+                    MaximumInterval = TimeSpan.FromMinutes(5),
+                    MaximumAttempts = 10,
                 },
             }
         );

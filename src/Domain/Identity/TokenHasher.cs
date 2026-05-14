@@ -1,4 +1,4 @@
-namespace App.Identity;
+namespace Domain.Identity;
 
 public static class TokenHasher
 {

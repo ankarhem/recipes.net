@@ -93,4 +93,28 @@ public sealed class User
         UpdatedAt = now;
         return true;
     }
+
+    public bool RemoveEmailVerificationToken(TokenHash hash, IClock clock)
+    {
+        var removed = _emailVerificationTokens.RemoveAll(t => t.TokenHash == hash);
+        if (removed == 0)
+        {
+            return false;
+        }
+
+        UpdatedAt = clock.UtcNow;
+        return true;
+    }
+
+    public bool RemovePasswordResetToken(TokenHash hash, IClock clock)
+    {
+        var removed = _passwordResetTokens.RemoveAll(t => t.TokenHash == hash);
+        if (removed == 0)
+        {
+            return false;
+        }
+
+        UpdatedAt = clock.UtcNow;
+        return true;
+    }
 }

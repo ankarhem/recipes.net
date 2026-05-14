@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using App.Identity;
+using Domain.Identity;
 
 namespace Infrastructure.Identity;
 

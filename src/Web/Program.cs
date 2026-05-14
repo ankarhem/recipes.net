@@ -285,6 +285,7 @@ builder
     .AddTransientActivities<CrawlerActivities>()
     .AddTransientActivities<EmbeddingActivities>()
     .AddTransientActivities<EmailActivities>()
+    .AddTransientActivities<TokenCleanupActivities>()
     .AddWorkflow<CrawlerWorkflow>()
     .AddWorkflow<EmailVerificationWorkflow>()
     .AddWorkflow<PasswordResetWorkflow>();

@@ -1,3 +1,4 @@
+using Domain.Identity;
 using Temporalio.Client;
 
 namespace App.Identity;
