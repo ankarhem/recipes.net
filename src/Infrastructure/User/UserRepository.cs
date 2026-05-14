@@ -30,6 +30,7 @@ public sealed class UserRepository(RecipesDbContext db) : IUserRepository
             Id = Guid.NewGuid(),
             Email = email,
             PasswordHash = passwordHash,
+            EmailVerified = false,
             CreatedAt = now,
             UpdatedAt = now,
         };
@@ -46,5 +47,37 @@ public sealed class UserRepository(RecipesDbContext db) : IUserRepository
             .SingleOrDefaultAsync(u => u.Id == id, cancellationToken);
 
         return entity?.ToDomain();
+    }
+
+    public async Task MarkEmailVerifiedAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default
+    )
+    {
+        await db.Users
+            .Where(u => u.Id == userId)
+            .ExecuteUpdateAsync(
+                setter => setter
+                    .SetProperty(u => u.EmailVerified, true)
+                    .SetProperty(u => u.EmailVerifiedAt, DateTimeOffset.UtcNow)
+                    .SetProperty(u => u.UpdatedAt, DateTimeOffset.UtcNow),
+                cancellationToken
+            );
+    }
+
+    public async Task UpdatePasswordHashAsync(
+        Guid userId,
+        string newPasswordHash,
+        CancellationToken cancellationToken = default
+    )
+    {
+        await db.Users
+            .Where(u => u.Id == userId)
+            .ExecuteUpdateAsync(
+                setter => setter
+                    .SetProperty(u => u.PasswordHash, newPasswordHash)
+                    .SetProperty(u => u.UpdatedAt, DateTimeOffset.UtcNow),
+                cancellationToken
+            );
     }
 }

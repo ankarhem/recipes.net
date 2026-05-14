@@ -4,6 +4,10 @@ namespace Infrastructure.Auth;
 
 public sealed class BCryptPasswordHasher : IPasswordHasher
 {
+    private readonly Lazy<string> _dummyHash = new(() =>
+        BCrypt.Net.BCrypt.HashPassword("timing-resistant-dummy", workFactor: 12)
+    );
+
     public string Hash(string password) => BCrypt.Net.BCrypt.HashPassword(password, workFactor: 12);
 
     public bool Verify(string password, string hashedPassword)
@@ -17,4 +21,6 @@ public sealed class BCryptPasswordHasher : IPasswordHasher
             return false;
         }
     }
+
+    public string DummyHash => _dummyHash.Value;
 }

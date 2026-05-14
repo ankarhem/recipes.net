@@ -3,7 +3,7 @@ using App.Auth;
 
 namespace Infrastructure.Auth;
 
-public sealed class RefreshTokenGenerator : IRefreshTokenGenerator
+public sealed class SecureTokenGenerator : ISecureTokenGenerator
 {
     public (string PlainToken, string HashedToken) Generate()
     {

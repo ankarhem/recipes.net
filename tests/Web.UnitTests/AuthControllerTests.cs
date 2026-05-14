@@ -14,23 +14,17 @@ public class AuthControllerTests
     private readonly IAuthService _service = Substitute.For<IAuthService>();
 
     [Fact]
-    public async Task Register_Success_Returns201WithTokens()
+    public async Task Register_Success_Returns201WithPendingVerification()
     {
         var userId = Guid.NewGuid();
         var email = "user@example.com";
-        var expiresAt = DateTimeOffset.UtcNow.AddMinutes(15);
         _service
             .RegisterAsync(default!, default!, default)
             .ReturnsForAnyArgs(
                 (Func<CallInfo, Task<AuthResult>>)(
                     _ =>
                         Task.FromResult<AuthResult>(
-                            new AuthResult.Success(
-                                userId,
-                                email,
-                                new AccessToken { Token = "jwt-token", ExpiresAt = expiresAt },
-                                "refresh-token"
-                            )
+                            new AuthResult.RegistrationPending(userId, email)
                         )
                 )
             );
@@ -41,13 +35,9 @@ public class AuthControllerTests
 
         var created = result.Should().BeOfType<CreatedAtActionResult>().Subject;
         created.StatusCode.Should().Be(201);
-        var response = created.Value.Should().BeOfType<AuthResponse>().Subject;
+        var response = created.Value.Should().BeOfType<RegistrationResponse>().Subject;
         response.UserId.Should().Be(userId);
         response.Email.Should().Be(email);
-        response.AccessToken.Should().Be("jwt-token");
-        response.TokenType.Should().Be("Bearer");
-        response.ExpiresAt.Should().Be(expiresAt);
-        response.RefreshToken.Should().Be("refresh-token");
     }
 
     [Fact]
@@ -179,5 +169,24 @@ public class AuthControllerTests
 
         var unauthorized = result.Should().BeOfType<UnauthorizedObjectResult>().Subject;
         unauthorized.StatusCode.Should().Be(401);
+    }
+
+    [Fact]
+    public async Task Refresh_EmailNotVerified_Returns403()
+    {
+        _service
+            .RefreshAsync(default!, default)
+            .ReturnsForAnyArgs(
+                (Func<CallInfo, Task<AuthResult>>)(
+                    _ => Task.FromResult<AuthResult>(new AuthResult.EmailNotVerified())
+                )
+            );
+        var controller = new AuthController(_service);
+        var request = new RefreshRequest { RefreshToken = "refresh-token" };
+
+        var result = await controller.Refresh(request, CancellationToken.None);
+
+        var forbidden = result.Should().BeOfType<ObjectResult>().Subject;
+        forbidden.StatusCode.Should().Be(403);
     }
 }

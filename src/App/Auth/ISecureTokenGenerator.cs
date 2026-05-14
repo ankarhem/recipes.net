@@ -1,6 +1,6 @@
 namespace App.Auth;
 
-public interface IRefreshTokenGenerator
+public interface ISecureTokenGenerator
 {
     (string PlainToken, string HashedToken) Generate();
 }

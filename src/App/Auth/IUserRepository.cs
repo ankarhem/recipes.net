@@ -11,4 +11,10 @@ public interface IUserRepository
         CancellationToken cancellationToken = default
     );
     Task<DomainUser?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+    Task MarkEmailVerifiedAsync(Guid userId, CancellationToken cancellationToken = default);
+    Task UpdatePasswordHashAsync(
+        Guid userId,
+        string newPasswordHash,
+        CancellationToken cancellationToken = default
+    );
 }

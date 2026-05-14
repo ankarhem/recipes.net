@@ -38,17 +38,18 @@ public sealed class RefreshTokenRepository(RecipesDbContext db) : IRefreshTokenR
         return entity?.ToDomain();
     }
 
-    public async Task RevokeAsync(
+    public async Task<bool> TryRevokeAsync(
         Guid refreshTokenId,
         CancellationToken cancellationToken = default
     )
     {
-        var entity = await db.RefreshTokens.FindAsync([refreshTokenId], cancellationToken);
-        if (entity is not null)
-        {
-            entity.RevokedAt = DateTimeOffset.UtcNow;
-            await db.SaveChangesAsync(cancellationToken);
-        }
+        var rows = await db.RefreshTokens
+            .Where(t => t.Id == refreshTokenId && t.RevokedAt == null)
+            .ExecuteUpdateAsync(
+                setter => setter.SetProperty(t => t.RevokedAt, DateTimeOffset.UtcNow),
+                cancellationToken
+            );
+        return rows > 0;
     }
 
     public async Task RevokeAllForUserAsync(

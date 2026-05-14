@@ -118,6 +118,16 @@ if (
     );
 }
 
+if (
+    !builder.Environment.IsDevelopment()
+    && string.IsNullOrWhiteSpace(appSettings.Email.SmtpHost)
+)
+{
+    throw new InvalidOperationException(
+        "Email:SmtpHost is required outside Development. Set the Email:SmtpHost configuration value."
+    );
+}
+
 builder
     .Services.AddOpenTelemetry()
     .ConfigureResource(resource =>
@@ -215,7 +225,31 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
-builder.Services.AddSingleton<IRefreshTokenGenerator, RefreshTokenGenerator>();
+builder.Services.AddSingleton<ISecureTokenGenerator, SecureTokenGenerator>();
+builder.Services.AddScoped<IEmailVerificationTokenRepository, EmailVerificationTokenRepository>();
+builder.Services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepository>();
+builder.Services.AddScoped<IEmailWorkflowStarter>(sp =>
+{
+    var client = sp.GetRequiredService<ITemporalClient>();
+    var settings = sp.GetRequiredService<AppSettings>();
+    return new EmailWorkflowStarter(client, settings.Temporal.TaskQueue);
+});
+builder.Services.AddSingleton<IEmailService, EmailService>();
+builder.Services.AddSingleton<Infrastructure.Auth.EmailSettings>(sp =>
+{
+    var settings = sp.GetRequiredService<AppSettings>();
+    return new Infrastructure.Auth.EmailSettings
+    {
+        SmtpHost = settings.Email.SmtpHost,
+        SmtpPort = settings.Email.SmtpPort,
+        SmtpUser = settings.Email.SmtpUser,
+        SmtpPass = settings.Email.SmtpPass,
+        FromEmail = settings.Email.FromEmail,
+        FromName = settings.Email.FromName,
+        BaseUrl = settings.Email.BaseUrl,
+        RequireTls = !builder.Environment.IsDevelopment(),
+    };
+});
 builder.Services.AddSingleton<JwtAccessTokenOptions>(sp =>
 {
     var settings = sp.GetRequiredService<AppSettings>();
@@ -251,7 +285,10 @@ builder
     .Services.AddHostedTemporalWorker(appSettings.Temporal.TaskQueue)
     .AddTransientActivities<CrawlerActivities>()
     .AddTransientActivities<EmbeddingActivities>()
-    .AddWorkflow<CrawlerWorkflow>();
+    .AddTransientActivities<EmailActivities>()
+    .AddWorkflow<CrawlerWorkflow>()
+    .AddWorkflow<EmailVerificationWorkflow>()
+    .AddWorkflow<PasswordResetWorkflow>();
 
 var app = builder.Build();
 

@@ -2,6 +2,8 @@ This file is the agent's persisted memory. Keep it concise — small, important 
 
 Always run `just validate` before committing.
 
+The app is not deployed and is under active developement.
+
 ## Namespace collisions
 `Recipe` is used as both a namespace (`Domain.Recipe`, `App.Recipe`, `Infrastructure.Recipe`) and a type name (`Domain.Recipe.Recipe`, `Schema.NET.Recipe`). Files inside `*.Recipe` namespaces must use aliases: `DomainRecipe`, `SchemaRecipe`, `DomainRecipeIngredient`, `DomainRecipeInstruction`.
 
