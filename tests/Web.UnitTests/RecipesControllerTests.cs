@@ -18,6 +18,13 @@ public class RecipesControllerTests
         Name = "Test Recipe",
         Description = "A test",
         ImageUrls = ["https://example.com/image.jpg"],
+        Category = "Dessert",
+        Cuisine = "Italian",
+        SuitableForDiets = [Domain.Recipes.DietType.Vegetarian],
+        PrepTime = TimeSpan.FromMinutes(15),
+        CookTime = TimeSpan.FromMinutes(45),
+        TotalTime = TimeSpan.FromHours(1),
+        ServingsCount = 4,
         Ingredients = [new Domain.Recipes.RecipeIngredient { Text = "1 cup flour" }],
         Instructions =
         [
@@ -47,6 +54,13 @@ public class RecipesControllerTests
         response.Name.Should().Be("Test Recipe");
         response.Description.Should().Be("A test");
         response.ImageUrls.Should().Equal("https://example.com/image.jpg");
+        response.Category.Should().Be("Dessert");
+        response.Cuisine.Should().Be("Italian");
+        response.SuitableForDiets.Should().Equal("Vegetarian");
+        response.PrepTime.Should().Be(TimeSpan.FromMinutes(15));
+        response.CookTime.Should().Be(TimeSpan.FromMinutes(45));
+        response.TotalTime.Should().Be(TimeSpan.FromHours(1));
+        response.ServingsCount.Should().Be(4);
         response.Ingredients.Should().HaveCount(1);
         response.Ingredients[0].Text.Should().Be("1 cup flour");
         response.Instructions.Should().HaveCount(2);

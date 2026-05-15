@@ -16,6 +16,27 @@ public sealed record GetRecipeResponse
     [Description("Image URLs for the recipe.")]
     public required IReadOnlyList<string> ImageUrls { get; init; }
 
+    [Description("The recipe category, such as dessert or entree.")]
+    public string? Category { get; init; }
+
+    [Description("The recipe cuisine, such as Italian or Thai.")]
+    public string? Cuisine { get; init; }
+
+    [Description("Dietary guidelines this recipe is suitable for.")]
+    public required IReadOnlyList<string> SuitableForDiets { get; init; }
+
+    [Description("The preparation time.")]
+    public TimeSpan? PrepTime { get; init; }
+
+    [Description("The cooking time.")]
+    public TimeSpan? CookTime { get; init; }
+
+    [Description("The total time.")]
+    public TimeSpan? TotalTime { get; init; }
+
+    [Description("The number of servings produced by the recipe.")]
+    public int? ServingsCount { get; init; }
+
     [Description("The ingredients required for the recipe.")]
     public required IReadOnlyList<RecipeIngredientResponse> Ingredients { get; init; }
 

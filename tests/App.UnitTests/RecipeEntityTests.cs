@@ -1,4 +1,5 @@
 using AwesomeAssertions;
+using Domain.Recipes;
 using Infrastructure.Recipes;
 using Xunit;
 
@@ -16,6 +17,13 @@ public class RecipeEntityTests
             Name = "Test Recipe",
             Description = "A test description",
             ImageUrlsJson = """["https://example.com/img.jpg"]""",
+            Category = "Dessert",
+            Cuisine = "Italian",
+            SuitableForDiets = [DietType.Vegetarian, DietType.GlutenFree],
+            PrepTime = TimeSpan.FromMinutes(15),
+            CookTime = TimeSpan.FromMinutes(45),
+            TotalTime = TimeSpan.FromHours(1),
+            ServingsCount = 4,
             JsonLd = "{}",
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow,
@@ -54,6 +62,13 @@ public class RecipeEntityTests
         recipe.Name.Should().Be("Test Recipe");
         recipe.Description.Should().Be("A test description");
         recipe.ImageUrls.Should().Equal("https://example.com/img.jpg");
+        recipe.Category.Should().Be("Dessert");
+        recipe.Cuisine.Should().Be("Italian");
+        recipe.SuitableForDiets.Should().Equal(DietType.Vegetarian, DietType.GlutenFree);
+        recipe.PrepTime.Should().Be(TimeSpan.FromMinutes(15));
+        recipe.CookTime.Should().Be(TimeSpan.FromMinutes(45));
+        recipe.TotalTime.Should().Be(TimeSpan.FromHours(1));
+        recipe.ServingsCount.Should().Be(4);
         recipe.Ingredients.Should().HaveCount(1);
         recipe.Ingredients[0].Text.Should().Be("1 cup flour");
         recipe.Instructions.Should().HaveCount(2);

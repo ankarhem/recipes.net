@@ -12,6 +12,13 @@ public static class RecipeMapper
             Name = recipe.Name ?? "Untitled",
             Description = recipe.Description,
             ImageUrls = recipe.ImageUrls,
+            Category = recipe.Category,
+            Cuisine = recipe.Cuisine,
+            SuitableForDiets = recipe.SuitableForDiets.Select(d => d.ToString()).ToList(),
+            PrepTime = recipe.PrepTime,
+            CookTime = recipe.CookTime,
+            TotalTime = recipe.TotalTime,
+            ServingsCount = recipe.ServingsCount,
             Ingredients = recipe.Ingredients
                 .Select(i => new RecipeIngredientResponse { Text = i.Text })
                 .ToList(),

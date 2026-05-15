@@ -17,6 +17,7 @@ public class EmbeddingServiceTests
         Name = "Tomato Soup",
         Description = "A simple soup",
         ImageUrls = Array.Empty<string>(),
+        SuitableForDiets = [],
         Ingredients = [new RecipeIngredient { Text = "2 tomatoes" }],
         Instructions = [new RecipeInstruction { Position = 1, Text = "Chop tomatoes" }],
     };

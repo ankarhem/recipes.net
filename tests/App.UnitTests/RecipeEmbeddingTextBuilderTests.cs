@@ -17,6 +17,7 @@ public class RecipeEmbeddingTextBuilderTests
             Name = "Tomato Soup",
             Description = "A simple tomato soup",
             ImageUrls = Array.Empty<string>(),
+            SuitableForDiets = [],
             Ingredients = new[]
             {
                 new RecipeIngredient { Text = "4 tomatoes" },
@@ -137,6 +138,7 @@ public class RecipeEmbeddingTextBuilderTests
             Name = "Tomato Soup",
             Description = "A simple tomato soup",
             ImageUrls = Array.Empty<string>(),
+            SuitableForDiets = [],
             Ingredients = new[]
             {
                 new RecipeIngredient { Text = "4 tomatoes" },
@@ -168,6 +170,7 @@ public class RecipeEmbeddingTextBuilderTests
         {
             Id = Guid.NewGuid(),
             ImageUrls = Array.Empty<string>(),
+            SuitableForDiets = [],
             Ingredients = Array.Empty<RecipeIngredient>(),
             Instructions = Array.Empty<RecipeInstruction>(),
         };

@@ -268,6 +268,253 @@ public class JsonLdRecipeExtractorTests
         result.Recipe.Instructions.Should().BeEmpty();
     }
 
+    [Fact]
+    public void TryExtract_WithCategoryAndCuisine_MapsTrimmedValues()
+    {
+        var extractor = CreateExtractor();
+        var jsonLd = """
+            {
+              "@context": "https://schema.org",
+              "@type": "Recipe",
+              "recipeCategory": " Dessert ",
+              "recipeCuisine": " Italian "
+            }
+            """;
+
+        var result = extractor.TryExtract([jsonLd]);
+
+        result.Should().NotBeNull();
+        result!.Recipe.Category.Should().Be("Dessert");
+        result.Recipe.Cuisine.Should().Be("Italian");
+    }
+
+    [Fact]
+    public void TryExtract_WithSingleSuitableForDietUri_MapsDietType()
+    {
+        var extractor = CreateExtractor();
+        var jsonLd = """
+            {
+              "@context": "https://schema.org",
+              "@type": "Recipe",
+              "suitableForDiet": "https://schema.org/VeganDiet"
+            }
+            """;
+
+        var result = extractor.TryExtract([jsonLd]);
+
+        result.Should().NotBeNull();
+        result!.Recipe.SuitableForDiets.Should().Equal(DietType.Vegan);
+    }
+
+    [Fact]
+    public void TryExtract_WithMultipleSuitableForDietUris_MapsAllDietTypes()
+    {
+        var extractor = CreateExtractor();
+        var jsonLd = """
+            {
+              "@context": "https://schema.org",
+              "@type": "Recipe",
+              "suitableForDiet": [
+                "https://schema.org/VeganDiet",
+                "https://schema.org/GlutenFreeDiet"
+              ]
+            }
+            """;
+
+        var result = extractor.TryExtract([jsonLd]);
+
+        result.Should().NotBeNull();
+        result!.Recipe.SuitableForDiets.Should().Equal(DietType.Vegan, DietType.GlutenFree);
+    }
+
+    [Fact]
+    public void TryExtract_WithUnknownSuitableForDiet_SkipsUnknownDiet()
+    {
+        var extractor = CreateExtractor();
+        var jsonLd = """
+            {
+              "@context": "https://schema.org",
+              "@type": "Recipe",
+              "suitableForDiet": "https://schema.org/UnknownDiet"
+            }
+            """;
+
+        var result = extractor.TryExtract([jsonLd]);
+
+        result.Should().NotBeNull();
+        result!.Recipe.SuitableForDiets.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void TryExtract_WithTimeFields_MapsDurations()
+    {
+        var extractor = CreateExtractor();
+        var jsonLd = """
+            {
+              "@context": "https://schema.org",
+              "@type": "Recipe",
+              "prepTime": "PT15M",
+              "cookTime": "PT45M",
+              "totalTime": "PT1H"
+            }
+            """;
+
+        var result = extractor.TryExtract([jsonLd]);
+
+        result.Should().NotBeNull();
+        result!.Recipe.PrepTime.Should().Be(TimeSpan.FromMinutes(15));
+        result.Recipe.CookTime.Should().Be(TimeSpan.FromMinutes(45));
+        result.Recipe.TotalTime.Should().Be(TimeSpan.FromHours(1));
+    }
+
+    [Theory]
+    [InlineData("4", 4)]
+    [InlineData("\"4 servings\"", 4)]
+    [InlineData("\"one cake\"", null)]
+    public void TryExtract_WithRecipeYield_MapsServingsCount(
+        string recipeYieldJson,
+        int? expectedServingsCount
+    )
+    {
+        var extractor = CreateExtractor();
+        var jsonLd = $$"""
+            {
+              "@context": "https://schema.org",
+              "@type": "Recipe",
+              "recipeYield": {{recipeYieldJson}}
+            }
+            """;
+
+        var result = extractor.TryExtract([jsonLd]);
+
+        result.Should().NotBeNull();
+        result!.Recipe.ServingsCount.Should().Be(expectedServingsCount);
+    }
+
+    [Fact]
+    public void TryExtract_WithDuplicateSuitableForDiets_Deduplicates()
+    {
+        var extractor = CreateExtractor();
+        var jsonLd = """
+            {
+              "@context": "https://schema.org",
+              "@type": "Recipe",
+              "suitableForDiet": [
+                "https://schema.org/VeganDiet",
+                "https://schema.org/VeganDiet",
+                "https://schema.org/GlutenFreeDiet"
+              ]
+            }
+            """;
+
+        var result = extractor.TryExtract([jsonLd]);
+
+        result.Should().NotBeNull();
+        result!.Recipe.SuitableForDiets.Should().OnlyHaveUniqueItems();
+        result.Recipe.SuitableForDiets.Should().BeEquivalentTo([DietType.Vegan, DietType.GlutenFree]);
+    }
+
+    [Fact]
+    public void TryExtract_WithArrayRecipeYield_PrefersFirstNumber()
+    {
+        var extractor = CreateExtractor();
+        var jsonLd = """
+            {
+              "@context": "https://schema.org",
+              "@type": "Recipe",
+              "recipeYield": ["4", "1 cake"]
+            }
+            """;
+
+        var result = extractor.TryExtract([jsonLd]);
+
+        result.Should().NotBeNull();
+        result!.Recipe.ServingsCount.Should().Be(4);
+    }
+
+    [Fact]
+    public void TryExtract_WithQuantitativeValueRecipeYield_MapsServingsCount()
+    {
+        var extractor = CreateExtractor();
+        var jsonLd = """
+            {
+              "@context": "https://schema.org",
+              "@type": "Recipe",
+              "recipeYield": {
+                "@type": "QuantitativeValue",
+                "value": 6
+              }
+            }
+            """;
+
+        var result = extractor.TryExtract([jsonLd]);
+
+        result.Should().NotBeNull();
+        result!.Recipe.ServingsCount.Should().Be(6);
+    }
+
+    [Theory]
+    [InlineData("0")]
+    [InlineData("-3")]
+    [InlineData("\"0 servings\"")]
+    public void TryExtract_WithNonPositiveRecipeYield_ReturnsNull(string recipeYieldJson)
+    {
+        var extractor = CreateExtractor();
+        var jsonLd = $$"""
+            {
+              "@context": "https://schema.org",
+              "@type": "Recipe",
+              "recipeYield": {{recipeYieldJson}}
+            }
+            """;
+
+        var result = extractor.TryExtract([jsonLd]);
+
+        result.Should().NotBeNull();
+        result!.Recipe.ServingsCount.Should().BeNull();
+    }
+
+    [Fact]
+    public void TryExtract_WithAllWhitespaceCategory_ReturnsNull()
+    {
+        var extractor = CreateExtractor();
+        var jsonLd = """
+            {
+              "@context": "https://schema.org",
+              "@type": "Recipe",
+              "recipeCategory": "   ",
+              "recipeCuisine": "\t\n "
+            }
+            """;
+
+        var result = extractor.TryExtract([jsonLd]);
+
+        result.Should().NotBeNull();
+        result!.Recipe.Category.Should().BeNull();
+        result.Recipe.Cuisine.Should().BeNull();
+    }
+
+    [Fact]
+    public void TryExtract_WithLongCategory_TruncatesToMaxLength()
+    {
+        var extractor = CreateExtractor();
+        var longCategory = new string('A', 250);
+        var jsonLd = $$"""
+            {
+              "@context": "https://schema.org",
+              "@type": "Recipe",
+              "recipeCategory": "{{longCategory}}",
+              "recipeCuisine": "{{longCategory}}"
+            }
+            """;
+
+        var result = extractor.TryExtract([jsonLd]);
+
+        result.Should().NotBeNull();
+        result!.Recipe.Category.Should().HaveLength(200);
+        result.Recipe.Cuisine.Should().HaveLength(200);
+    }
+
     private static JsonLdRecipeExtractor CreateExtractor() =>
         new(NullLogger<JsonLdRecipeExtractor>.Instance);
 }

@@ -16,6 +16,7 @@ public class RecipeServiceTests
         Name = "Pasta Carbonara",
         Description = "A classic Italian dish",
         ImageUrls = Array.Empty<string>(),
+        SuitableForDiets = [],
         Ingredients = [new RecipeIngredient { Text = "200g spaghetti" }],
         Instructions =
         [

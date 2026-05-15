@@ -1,7 +1,9 @@
 using Domain.Identity;
+using Domain.Recipes;
 using Infrastructure.Embedding;
 using Infrastructure.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Pgvector.EntityFrameworkCore;
 
@@ -35,6 +37,27 @@ public sealed class RecipesDbContext(DbContextOptions<RecipesDbContext> options)
             entity.Property(e => e.Name).IsRequired();
             entity.Property(e => e.Description);
             entity.Property(e => e.ImageUrlsJson).HasColumnType("jsonb").IsRequired();
+            entity.Property(e => e.Category).HasMaxLength(200);
+            entity.Property(e => e.Cuisine).HasMaxLength(200);
+            entity
+                .Property(e => e.SuitableForDiets)
+                .HasConversion(
+                    v => v.Select(d => d.ToString()).ToArray(),
+                    v => v.Select(s => Enum.Parse<DietType>(s)).ToList().AsReadOnly(),
+                    new ValueComparer<IReadOnlyList<DietType>>(
+                        (a, b) => a!.OrderBy(d => d).SequenceEqual(b!.OrderBy(d => d)),
+                        v =>
+                            v.OrderBy(d => d)
+                                .Aggregate(0, (acc, d) => HashCode.Combine(acc, d)),
+                        v => v.ToList().AsReadOnly()
+                    )
+                )
+                .HasColumnType("text[]")
+                .HasDefaultValueSql("ARRAY[]::text[]");
+            entity.Property(e => e.PrepTime);
+            entity.Property(e => e.CookTime);
+            entity.Property(e => e.TotalTime);
+            entity.Property(e => e.ServingsCount);
             entity.Property(e => e.JsonLd).HasColumnType("jsonb").IsRequired();
         });
 
