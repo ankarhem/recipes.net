@@ -1,14 +1,14 @@
-using App.Recipe;
+using App.Recipes;
 using Domain.Identity;
-using Infrastructure.Recipe;
+using Domain.Recipes;
+using Infrastructure.Recipes;
 using Microsoft.EntityFrameworkCore;
-using DomainRecipeFavorite = Domain.Recipe.RecipeFavorite;
 
-namespace Infrastructure.Recipe;
+namespace Infrastructure.Recipes;
 
 public sealed class RecipeFavoriteRepository(RecipesDbContext db) : IRecipeFavoriteRepository
 {
-    public async Task<DomainRecipeFavorite?> FindAsync(
+    public async Task<RecipeFavorite?> FindAsync(
         Guid userId,
         Guid recipeId,
         CancellationToken cancellationToken = default

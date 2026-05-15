@@ -1,6 +1,6 @@
 using App.Identity;
 using Domain.Identity;
-using Infrastructure.Recipe;
+using Infrastructure.Recipes;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Identity;

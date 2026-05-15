@@ -1,6 +1,6 @@
 using System.Net;
 using App.Crawler;
-using App.Recipe;
+using App.Recipes;
 using AwesomeAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;

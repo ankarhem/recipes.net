@@ -1,5 +1,5 @@
 using AwesomeAssertions;
-using Infrastructure.Recipe;
+using Infrastructure.Recipes;
 using Xunit;
 
 namespace App.Tests;

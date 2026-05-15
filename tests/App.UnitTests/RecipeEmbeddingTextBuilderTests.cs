@@ -1,9 +1,7 @@
 using App.Embedding;
 using AwesomeAssertions;
+using Domain.Recipes;
 using Xunit;
-using DomainRecipe = Domain.Recipe.Recipe;
-using DomainRecipeIngredient = Domain.Recipe.RecipeIngredient;
-using DomainRecipeInstruction = Domain.Recipe.RecipeInstruction;
 
 namespace App.UnitTests;
 
@@ -14,7 +12,7 @@ public class RecipeEmbeddingTextBuilderTests
     [Fact]
     public void Build_WithFullRecipe_ProducesCanonicalText()
     {
-        var recipe = new DomainRecipe
+        var recipe = new Recipe
         {
             Id = Guid.NewGuid(),
             Name = "Tomato Soup",
@@ -22,13 +20,13 @@ public class RecipeEmbeddingTextBuilderTests
             ImageUrls = Array.Empty<string>(),
             Ingredients = new[]
             {
-                new DomainRecipeIngredient { Text = "4 tomatoes" },
-                new DomainRecipeIngredient { Text = "1 cup stock" },
+                new RecipeIngredient { Text = "4 tomatoes" },
+                new RecipeIngredient { Text = "1 cup stock" },
             },
             Instructions = new[]
             {
-                new DomainRecipeInstruction { Position = 1, Text = "Chop tomatoes" },
-                new DomainRecipeInstruction { Position = 2, Text = "Simmer soup" },
+                new RecipeInstruction { Position = 1, Text = "Chop tomatoes" },
+                new RecipeInstruction { Position = 2, Text = "Simmer soup" },
             },
         };
 
@@ -79,7 +77,7 @@ public class RecipeEmbeddingTextBuilderTests
             Description = "A simple tomato soup",
             Instructions = new[]
             {
-                new DomainRecipeInstruction { Position = 1, Text = "Simmer soup" },
+                new RecipeInstruction { Position = 1, Text = "Simmer soup" },
             },
         };
 
@@ -104,7 +102,7 @@ public class RecipeEmbeddingTextBuilderTests
         {
             Name = "Tomato Soup",
             Description = "A simple tomato soup",
-            Ingredients = new[] { new DomainRecipeIngredient { Text = "4 tomatoes" } },
+            Ingredients = new[] { new RecipeIngredient { Text = "4 tomatoes" } },
         };
 
         var result = _builder.Build(recipe);
@@ -134,7 +132,7 @@ public class RecipeEmbeddingTextBuilderTests
     [Fact]
     public void Build_IsDeterministic_SameInputSameOutput()
     {
-        var recipe = new DomainRecipe
+        var recipe = new Recipe
         {
             Id = Guid.NewGuid(),
             Name = "Tomato Soup",
@@ -142,13 +140,13 @@ public class RecipeEmbeddingTextBuilderTests
             ImageUrls = Array.Empty<string>(),
             Ingredients = new[]
             {
-                new DomainRecipeIngredient { Text = "4 tomatoes" },
-                new DomainRecipeIngredient { Text = "1 cup stock" },
+                new RecipeIngredient { Text = "4 tomatoes" },
+                new RecipeIngredient { Text = "1 cup stock" },
             },
             Instructions = new[]
             {
-                new DomainRecipeInstruction { Position = 1, Text = "Chop tomatoes" },
-                new DomainRecipeInstruction { Position = 2, Text = "Simmer soup" },
+                new RecipeInstruction { Position = 1, Text = "Chop tomatoes" },
+                new RecipeInstruction { Position = 2, Text = "Simmer soup" },
             },
         };
 
@@ -166,13 +164,13 @@ public class RecipeEmbeddingTextBuilderTests
         result.Should().Be("2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824");
     }
 
-    private static DomainRecipe MinimalRecipe() =>
+    private static Recipe MinimalRecipe() =>
         new()
         {
             Id = Guid.NewGuid(),
             ImageUrls = Array.Empty<string>(),
-            Ingredients = Array.Empty<DomainRecipeIngredient>(),
-            Instructions = Array.Empty<DomainRecipeInstruction>(),
+            Ingredients = Array.Empty<RecipeIngredient>(),
+            Instructions = Array.Empty<RecipeInstruction>(),
         };
 
     private static string JoinLines(params string[] lines) => string.Join("\n", lines);

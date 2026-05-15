@@ -1,5 +1,5 @@
 using App.Embedding;
-using App.Recipe;
+using App.Recipes;
 using Microsoft.Extensions.Logging;
 using Temporalio.Exceptions;
 using Temporalio.Workflows;

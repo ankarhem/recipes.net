@@ -1,5 +1,5 @@
 using System.Security.Claims;
-using App.Recipe;
+using App.Recipes;
 using AwesomeAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;

@@ -1,4 +1,4 @@
-namespace App.Recipe;
+namespace App.Recipes;
 
 public abstract record ToggleRecipeFavoriteResult
 {

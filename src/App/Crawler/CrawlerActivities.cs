@@ -1,9 +1,9 @@
-using System.Net;
-using App.Recipe;
+using App.Recipes;
+using Domain.Recipes;
 using Microsoft.Extensions.Logging;
+using System.Net;
 using Temporalio.Activities;
 using Temporalio.Exceptions;
-using DomainRecipe = Domain.Recipe.Recipe;
 
 namespace App.Crawler;
 
@@ -66,7 +66,7 @@ public sealed class CrawlerActivities(
 
     [Activity]
     public async Task<Guid> SaveRecipeAsync(
-        DomainRecipe recipe,
+        Recipe recipe,
         string sourceUrl,
         string rawSchemaJson
     )

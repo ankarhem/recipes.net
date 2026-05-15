@@ -1,7 +1,7 @@
+using Domain.Recipes;
 using Microsoft.Extensions.Logging;
 using Temporalio.Activities;
 using Temporalio.Exceptions;
-using DomainRecipe = Domain.Recipe.Recipe;
 
 namespace App.Embedding;
 
@@ -13,7 +13,7 @@ public sealed class EmbeddingActivities(
     [Activity]
     public async Task EnsureRecipeEmbeddingAsync(
         Guid recipeId,
-        DomainRecipe recipe,
+        Recipe recipe,
         EmbeddingModel model
     )
     {

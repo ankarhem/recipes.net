@@ -1,4 +1,4 @@
-namespace App.Recipe;
+namespace App.Recipes;
 
 public sealed class RecipeFavoriteService(
     IRecipeFavoriteRepository favoriteRepository,

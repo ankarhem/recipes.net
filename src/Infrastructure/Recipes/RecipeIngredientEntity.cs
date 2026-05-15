@@ -1,4 +1,4 @@
-namespace Infrastructure.Recipe;
+namespace Infrastructure.Recipes;
 
 public sealed class RecipeIngredientEntity
 {

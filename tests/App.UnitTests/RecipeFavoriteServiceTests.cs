@@ -1,9 +1,9 @@
-using App.Recipe;
+using App.Recipes;
 using AwesomeAssertions;
-using NSubstitute;
+using Domain.Recipes;
 using NSubstitute.Core;
+using NSubstitute;
 using Xunit;
-using DomainRecipeFavorite = Domain.Recipe.RecipeFavorite;
 
 namespace App.UnitTests;
 
@@ -44,8 +44,8 @@ public class RecipeFavoriteServiceTests
         favoriteRepository
             .FindAsync(default, default, default)
             .ReturnsForAnyArgs(
-                (Func<CallInfo, Task<DomainRecipeFavorite?>>)(
-                    _ => Task.FromResult<DomainRecipeFavorite?>(null)
+                (Func<CallInfo, Task<RecipeFavorite?>>)(
+                    _ => Task.FromResult<RecipeFavorite?>(null)
                 )
             );
         favoriteRepository.AddAsync(default, default, default).ReturnsForAnyArgs(Task.CompletedTask);
@@ -66,7 +66,7 @@ public class RecipeFavoriteServiceTests
         var recipeRepository = Substitute.For<IRecipeRepository>();
         var userId = Guid.NewGuid();
         var recipeId = Guid.NewGuid();
-        var favorite = new DomainRecipeFavorite
+        var favorite = new RecipeFavorite
         {
             UserId = userId,
             RecipeId = recipeId,
@@ -79,8 +79,8 @@ public class RecipeFavoriteServiceTests
         favoriteRepository
             .FindAsync(default, default, default)
             .ReturnsForAnyArgs(
-                (Func<CallInfo, Task<DomainRecipeFavorite?>>)(
-                    _ => Task.FromResult<DomainRecipeFavorite?>(favorite)
+                (Func<CallInfo, Task<RecipeFavorite?>>)(
+                    _ => Task.FromResult<RecipeFavorite?>(favorite)
                 )
             );
         favoriteRepository.RemoveAsync(default, default, default).ReturnsForAnyArgs(Task.CompletedTask);

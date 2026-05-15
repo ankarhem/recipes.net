@@ -1,5 +1,5 @@
 using App.Identity;
-using Infrastructure.Recipe;
+using Infrastructure.Recipes;
 using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Infrastructure.Identity;

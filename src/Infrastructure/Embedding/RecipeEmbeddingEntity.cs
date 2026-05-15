@@ -1,4 +1,4 @@
-using Infrastructure.Recipe;
+using Infrastructure.Recipes;
 using Pgvector;
 
 namespace Infrastructure.Embedding;

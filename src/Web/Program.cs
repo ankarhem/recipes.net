@@ -1,11 +1,11 @@
 using App.Identity;
 using App.Crawler;
 using App.Embedding;
-using App.Recipe;
+using App.Recipes;
 using Infrastructure.Identity;
 using Infrastructure.Crawler;
 using Infrastructure.Embedding;
-using Infrastructure.Recipe;
+using Infrastructure.Recipes;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
@@ -285,7 +285,7 @@ builder
     .SetApplicationName("recipes");
 
 builder.Services.AddScoped<IRecipeRepository, RecipeRepository>();
-builder.Services.AddScoped<IRecipeService, App.Recipe.RecipeService>();
+builder.Services.AddScoped<IRecipeService, App.Recipes.RecipeService>();
 builder.Services.AddSingleton<IRecipeEmbeddingTextBuilder, RecipeEmbeddingTextBuilder>();
 builder.Services.AddScoped<IRecipeEmbeddingRepository, RecipeEmbeddingRepository>();
 builder.Services.AddScoped<IEmbeddingService, EmbeddingService>();

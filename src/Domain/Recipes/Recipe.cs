@@ -1,4 +1,4 @@
-namespace Domain.Recipe;
+namespace Domain.Recipes;
 
 public sealed record Recipe
 {

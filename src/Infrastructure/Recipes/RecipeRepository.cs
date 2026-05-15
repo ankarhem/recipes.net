@@ -1,14 +1,14 @@
-using App.Recipe;
+using App.Recipes;
+using Domain.Recipes;
 using Microsoft.EntityFrameworkCore;
-using Pgvector;
 using Pgvector.EntityFrameworkCore;
-using DomainRecipe = Domain.Recipe.Recipe;
+using Pgvector;
 
-namespace Infrastructure.Recipe;
+namespace Infrastructure.Recipes;
 
 public sealed class RecipeRepository(RecipesDbContext db) : IRecipeRepository
 {
-    public async Task<DomainRecipe?> GetByIdAsync(
+    public async Task<Recipe?> GetByIdAsync(
         Guid id,
         CancellationToken cancellationToken = default
     )
@@ -28,7 +28,7 @@ public sealed class RecipeRepository(RecipesDbContext db) : IRecipeRepository
     }
 
     public async Task<Guid> SaveImportedAsync(
-        DomainRecipe recipe,
+        Recipe recipe,
         string sourceUrl,
         string rawSchemaJson,
         CancellationToken cancellationToken = default
@@ -51,7 +51,7 @@ public sealed class RecipeRepository(RecipesDbContext db) : IRecipeRepository
         return entity.Id;
     }
 
-    public async Task<IReadOnlyList<DomainRecipe>> SearchAsync(
+    public async Task<IReadOnlyList<Recipe>> SearchAsync(
         ReadOnlyMemory<float> queryEmbedding,
         string model,
         int dimensions,

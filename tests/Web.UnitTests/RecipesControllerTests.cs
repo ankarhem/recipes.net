@@ -1,4 +1,4 @@
-using App.Recipe;
+using App.Recipes;
 using AwesomeAssertions;
 using Microsoft.AspNetCore.Mvc;
 using NSubstitute;
@@ -12,17 +12,17 @@ public class RecipesControllerTests
 {
     private readonly IRecipeService _service = Substitute.For<IRecipeService>();
 
-    private static readonly Domain.Recipe.Recipe TestRecipe = new()
+    private static readonly Domain.Recipes.Recipe TestRecipe = new()
     {
         Id = Guid.NewGuid(),
         Name = "Test Recipe",
         Description = "A test",
         ImageUrls = ["https://example.com/image.jpg"],
-        Ingredients = [new Domain.Recipe.RecipeIngredient { Text = "1 cup flour" }],
+        Ingredients = [new Domain.Recipes.RecipeIngredient { Text = "1 cup flour" }],
         Instructions =
         [
-            new Domain.Recipe.RecipeInstruction { Position = 1, Text = "Mix dry ingredients" },
-            new Domain.Recipe.RecipeInstruction { Position = 2, Text = "Add wet ingredients" },
+            new Domain.Recipes.RecipeInstruction { Position = 1, Text = "Mix dry ingredients" },
+            new Domain.Recipes.RecipeInstruction { Position = 2, Text = "Add wet ingredients" },
         ],
     };
 
@@ -32,8 +32,8 @@ public class RecipesControllerTests
         _service
             .GetRecipeAsync(TestRecipe.Id, Arg.Any<CancellationToken>())
             .Returns(
-                (Func<NSubstitute.Core.CallInfo, Task<Domain.Recipe.Recipe?>>)(
-                    _ => Task.FromResult<Domain.Recipe.Recipe?>(TestRecipe)
+                (Func<NSubstitute.Core.CallInfo, Task<Domain.Recipes.Recipe?>>)(
+                    _ => Task.FromResult<Domain.Recipes.Recipe?>(TestRecipe)
                 )
             );
         var controller = new RecipesController(_service);
@@ -63,8 +63,8 @@ public class RecipesControllerTests
         _service
             .GetRecipeAsync(id, Arg.Any<CancellationToken>())
             .Returns(
-                (Func<NSubstitute.Core.CallInfo, Task<Domain.Recipe.Recipe?>>)(
-                    _ => Task.FromResult<Domain.Recipe.Recipe?>(null)
+                (Func<NSubstitute.Core.CallInfo, Task<Domain.Recipes.Recipe?>>)(
+                    _ => Task.FromResult<Domain.Recipes.Recipe?>(null)
                 )
             );
         var controller = new RecipesController(_service);
@@ -81,8 +81,8 @@ public class RecipesControllerTests
         _service
             .GetRecipeAsync(recipe.Id, Arg.Any<CancellationToken>())
             .Returns(
-                (Func<NSubstitute.Core.CallInfo, Task<Domain.Recipe.Recipe?>>)(
-                    _ => Task.FromResult<Domain.Recipe.Recipe?>(recipe)
+                (Func<NSubstitute.Core.CallInfo, Task<Domain.Recipes.Recipe?>>)(
+                    _ => Task.FromResult<Domain.Recipes.Recipe?>(recipe)
                 )
             );
         var controller = new RecipesController(_service);
@@ -100,8 +100,8 @@ public class RecipesControllerTests
         _service
             .GetRecipeAsync(TestRecipe.Id, Arg.Any<CancellationToken>())
             .Returns(
-                (Func<NSubstitute.Core.CallInfo, Task<Domain.Recipe.Recipe?>>)(
-                    _ => Task.FromResult<Domain.Recipe.Recipe?>(TestRecipe)
+                (Func<NSubstitute.Core.CallInfo, Task<Domain.Recipes.Recipe?>>)(
+                    _ => Task.FromResult<Domain.Recipes.Recipe?>(TestRecipe)
                 )
             );
         var controller = new RecipesController(_service);
@@ -115,12 +115,12 @@ public class RecipesControllerTests
     [Fact]
     public async Task Search_ValidQuery_Returns200WithResults()
     {
-        var results = new List<Domain.Recipe.Recipe> { TestRecipe };
+        var results = new List<Domain.Recipes.Recipe> { TestRecipe };
         _service
             .SearchRecipesAsync("pasta", Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(
-                (Func<NSubstitute.Core.CallInfo, Task<IReadOnlyList<Domain.Recipe.Recipe>>>)(
-                    _ => Task.FromResult<IReadOnlyList<Domain.Recipe.Recipe>>(results)
+                (Func<NSubstitute.Core.CallInfo, Task<IReadOnlyList<Domain.Recipes.Recipe>>>)(
+                    _ => Task.FromResult<IReadOnlyList<Domain.Recipes.Recipe>>(results)
                 )
             );
         var controller = new RecipesController(_service);
@@ -162,8 +162,8 @@ public class RecipesControllerTests
         _service
             .SearchRecipesAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(
-                (Func<NSubstitute.Core.CallInfo, Task<IReadOnlyList<Domain.Recipe.Recipe>>>)(
-                    _ => Task.FromResult<IReadOnlyList<Domain.Recipe.Recipe>>([])
+                (Func<NSubstitute.Core.CallInfo, Task<IReadOnlyList<Domain.Recipes.Recipe>>>)(
+                    _ => Task.FromResult<IReadOnlyList<Domain.Recipes.Recipe>>([])
                 )
             );
         var controller = new RecipesController(_service);
@@ -180,8 +180,8 @@ public class RecipesControllerTests
         _service
             .SearchRecipesAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(
-                (Func<NSubstitute.Core.CallInfo, Task<IReadOnlyList<Domain.Recipe.Recipe>>>)(
-                    _ => Task.FromResult<IReadOnlyList<Domain.Recipe.Recipe>>([])
+                (Func<NSubstitute.Core.CallInfo, Task<IReadOnlyList<Domain.Recipes.Recipe>>>)(
+                    _ => Task.FromResult<IReadOnlyList<Domain.Recipes.Recipe>>([])
                 )
             );
         var controller = new RecipesController(_service);

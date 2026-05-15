@@ -1,26 +1,24 @@
 using App.Embedding;
-using App.Recipe;
+using App.Recipes;
 using AwesomeAssertions;
+using Domain.Recipes;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Xunit;
-using DomainRecipe = Domain.Recipe.Recipe;
-using DomainRecipeIngredient = Domain.Recipe.RecipeIngredient;
-using DomainRecipeInstruction = Domain.Recipe.RecipeInstruction;
 
 namespace App.UnitTests;
 
 public class EmbeddingServiceTests
 {
-    private static readonly DomainRecipe SampleRecipe = new()
+    private static readonly Recipe SampleRecipe = new()
     {
         Id = Guid.NewGuid(),
         Name = "Tomato Soup",
         Description = "A simple soup",
         ImageUrls = Array.Empty<string>(),
-        Ingredients = [new DomainRecipeIngredient { Text = "2 tomatoes" }],
-        Instructions = [new DomainRecipeInstruction { Position = 1, Text = "Chop tomatoes" }],
+        Ingredients = [new RecipeIngredient { Text = "2 tomatoes" }],
+        Instructions = [new RecipeInstruction { Position = 1, Text = "Chop tomatoes" }],
     };
 
     private static readonly string ExpectedCanonicalText = new RecipeEmbeddingTextBuilder().Build(

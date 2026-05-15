@@ -1,6 +1,6 @@
+using Domain.Recipes;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
-using DomainRecipe = Domain.Recipe.Recipe;
 
 namespace App.Embedding;
 
@@ -13,7 +13,7 @@ public sealed class EmbeddingService(
 {
     public async Task EnsureRecipeEmbeddingAsync(
         Guid recipeId,
-        DomainRecipe recipe,
+        Recipe recipe,
         EmbeddingModel model,
         CancellationToken cancellationToken = default
     )

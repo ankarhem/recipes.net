@@ -1,11 +1,7 @@
-using App.Recipe;
+using App.Recipes;
 using AwesomeAssertions;
-using Schema.NET;
+using Domain.Recipes;
 using Xunit;
-using DomainRecipe = Domain.Recipe.Recipe;
-using DomainRecipeIngredient = Domain.Recipe.RecipeIngredient;
-using DomainRecipeInstruction = Domain.Recipe.RecipeInstruction;
-using SchemaRecipe = Schema.NET.Recipe;
 
 namespace App.UnitTests;
 
@@ -16,7 +12,7 @@ public class RecipeFactoryTests
     {
         var firstImageUrl = new Uri("https://example.com/images/soup-one.jpg");
         var secondImageUrl = new Uri("https://example.com/images/soup-two.jpg");
-        var schemaRecipe = new SchemaRecipe
+        var schemaRecipe = new Schema.NET.Recipe
         {
             Name = "Tomato Soup",
             Description = "A simple tomato soup",
@@ -25,7 +21,7 @@ public class RecipeFactoryTests
             RecipeInstructions = new[] { "Chop tomatoes", "Simmer soup" },
         };
 
-        DomainRecipe result = RecipeFactory.FromSchema(schemaRecipe);
+        Recipe result = RecipeFactory.FromSchema(schemaRecipe);
 
         result.Name.Should().Be("Tomato Soup");
         result.Description.Should().Be("A simple tomato soup");
@@ -33,23 +29,23 @@ public class RecipeFactoryTests
         result
             .Ingredients.Should()
             .Equal(
-                new DomainRecipeIngredient { Text = "4 tomatoes" },
-                new DomainRecipeIngredient { Text = "1 cup stock" }
+                new RecipeIngredient { Text = "4 tomatoes" },
+                new RecipeIngredient { Text = "1 cup stock" }
             );
         result
             .Instructions.Should()
             .Equal(
-                new DomainRecipeInstruction { Position = 1, Text = "Chop tomatoes" },
-                new DomainRecipeInstruction { Position = 2, Text = "Simmer soup" }
+                new RecipeInstruction { Position = 1, Text = "Chop tomatoes" },
+                new RecipeInstruction { Position = 2, Text = "Simmer soup" }
             );
     }
 
     [Fact]
     public void FromSchema_MultiValueName_TakesFirst()
     {
-        var schemaRecipe = new SchemaRecipe { Name = new[] { "Primary Name", "Alternate Name" } };
+        var schemaRecipe = new Schema.NET.Recipe { Name = new[] { "Primary Name", "Alternate Name" } };
 
-        DomainRecipe result = RecipeFactory.FromSchema(schemaRecipe);
+        Recipe result = RecipeFactory.FromSchema(schemaRecipe);
 
         result.Name.Should().Be("Primary Name");
     }
@@ -57,9 +53,9 @@ public class RecipeFactoryTests
     [Fact]
     public void FromSchema_NullName_ReturnsNullName()
     {
-        var schemaRecipe = new SchemaRecipe();
+        var schemaRecipe = new Schema.NET.Recipe();
 
-        DomainRecipe result = RecipeFactory.FromSchema(schemaRecipe);
+        Recipe result = RecipeFactory.FromSchema(schemaRecipe);
 
         result.Name.Should().BeNull();
     }
@@ -67,12 +63,12 @@ public class RecipeFactoryTests
     [Fact]
     public void FromSchema_DescriptionNonString_ReturnsNull()
     {
-        var schemaRecipe = new SchemaRecipe
+        var schemaRecipe = new Schema.NET.Recipe
         {
-            Description = new object[] { new TextObject { Text = "Structured description" } },
+            Description = new object[] { new Schema.NET.TextObject { Text = "Structured description" } },
         };
 
-        DomainRecipe result = RecipeFactory.FromSchema(schemaRecipe);
+        Recipe result = RecipeFactory.FromSchema(schemaRecipe);
 
         result.Description.Should().BeNull();
     }
@@ -81,16 +77,16 @@ public class RecipeFactoryTests
     public void FromSchema_ImagesWithNonUriValues_FiltersToUriOnly()
     {
         var uriImage = new Uri("https://example.com/images/direct.jpg");
-        var schemaRecipe = new SchemaRecipe
+        var schemaRecipe = new Schema.NET.Recipe
         {
             Image = new object[]
             {
-                new ImageObject { Url = new Uri("https://example.com/images/object.jpg") },
+                new Schema.NET.ImageObject { Url = new Uri("https://example.com/images/object.jpg") },
                 uriImage,
             },
         };
 
-        DomainRecipe result = RecipeFactory.FromSchema(schemaRecipe);
+        Recipe result = RecipeFactory.FromSchema(schemaRecipe);
 
         result.ImageUrls.Should().ContainSingle(uriImage.ToString());
     }
@@ -98,57 +94,57 @@ public class RecipeFactoryTests
     [Fact]
     public void FromSchema_InstructionsWithNonStringValues_FiltersToStringOnly()
     {
-        var schemaRecipe = new SchemaRecipe
+        var schemaRecipe = new Schema.NET.Recipe
         {
             RecipeInstructions = new object[]
             {
-                new CreativeWork { Name = "Structured prep" },
+                new Schema.NET.CreativeWork { Name = "Structured prep" },
                 "Mix batter",
-                new ItemList { Name = "Structured list" },
+                new Schema.NET.ItemList { Name = "Structured list" },
                 "Bake cake",
             },
         };
 
-        DomainRecipe result = RecipeFactory.FromSchema(schemaRecipe);
+        Recipe result = RecipeFactory.FromSchema(schemaRecipe);
 
         result
             .Instructions.Should()
             .Equal(
-                new DomainRecipeInstruction { Position = 1, Text = "Mix batter" },
-                new DomainRecipeInstruction { Position = 2, Text = "Bake cake" }
+                new RecipeInstruction { Position = 1, Text = "Mix batter" },
+                new RecipeInstruction { Position = 2, Text = "Bake cake" }
             );
     }
 
     [Fact]
     public void FromSchema_Instructions_GetOneBasedPositions()
     {
-        var schemaRecipe = new SchemaRecipe
+        var schemaRecipe = new Schema.NET.Recipe
         {
             RecipeInstructions = new[] { "Prep ingredients", "Cook filling", "Serve" },
         };
 
-        DomainRecipe result = RecipeFactory.FromSchema(schemaRecipe);
+        Recipe result = RecipeFactory.FromSchema(schemaRecipe);
 
         result
             .Instructions.Should()
             .Equal(
-                new DomainRecipeInstruction { Position = 1, Text = "Prep ingredients" },
-                new DomainRecipeInstruction { Position = 2, Text = "Cook filling" },
-                new DomainRecipeInstruction { Position = 3, Text = "Serve" }
+                new RecipeInstruction { Position = 1, Text = "Prep ingredients" },
+                new RecipeInstruction { Position = 2, Text = "Cook filling" },
+                new RecipeInstruction { Position = 3, Text = "Serve" }
             );
     }
 
     [Fact]
     public void FromSchema_EmptyCollections_ReturnsEmptyDomainCollections()
     {
-        var schemaRecipe = new SchemaRecipe
+        var schemaRecipe = new Schema.NET.Recipe
         {
             Image = Array.Empty<Uri>(),
             RecipeIngredient = Array.Empty<string>(),
             RecipeInstructions = Array.Empty<string>(),
         };
 
-        DomainRecipe result = RecipeFactory.FromSchema(schemaRecipe);
+        Recipe result = RecipeFactory.FromSchema(schemaRecipe);
 
         result.ImageUrls.Should().BeEmpty();
         result.Ingredients.Should().BeEmpty();
@@ -158,18 +154,18 @@ public class RecipeFactoryTests
     [Fact]
     public void FromSchema_Ingredients_MapsToTextProperty()
     {
-        var schemaRecipe = new SchemaRecipe
+        var schemaRecipe = new Schema.NET.Recipe
         {
             RecipeIngredient = new[] { "1 tsp salt", "2 tbsp olive oil" },
         };
 
-        DomainRecipe result = RecipeFactory.FromSchema(schemaRecipe);
+        Recipe result = RecipeFactory.FromSchema(schemaRecipe);
 
         result
             .Ingredients.Should()
             .Equal(
-                new DomainRecipeIngredient { Text = "1 tsp salt" },
-                new DomainRecipeIngredient { Text = "2 tbsp olive oil" }
+                new RecipeIngredient { Text = "1 tsp salt" },
+                new RecipeIngredient { Text = "2 tbsp olive oil" }
             );
         result
             .Ingredients.Select(ingredient => ingredient.Text)

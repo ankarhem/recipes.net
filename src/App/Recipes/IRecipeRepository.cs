@@ -1,21 +1,22 @@
-using DomainRecipe = Domain.Recipe.Recipe;
 
-namespace App.Recipe;
+using Domain.Recipes;
+
+namespace App.Recipes;
 
 public interface IRecipeRepository
 {
-    Task<DomainRecipe?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<Recipe?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 
     Task<bool> ExistsAsync(Guid id, CancellationToken cancellationToken = default);
 
     Task<Guid> SaveImportedAsync(
-        DomainRecipe recipe,
+        Recipe recipe,
         string sourceUrl,
         string rawSchemaJson,
         CancellationToken cancellationToken = default
     );
 
-    Task<IReadOnlyList<DomainRecipe>> SearchAsync(
+    Task<IReadOnlyList<Recipe>> SearchAsync(
         ReadOnlyMemory<float> queryEmbedding,
         string model,
         int dimensions,

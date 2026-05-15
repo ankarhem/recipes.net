@@ -4,14 +4,11 @@ Always run `just validate` before committing.
 
 The app is not deployed and is under active developement.
 
-## Namespace collisions
-`Recipe` is used as both a namespace (`Domain.Recipe`, `App.Recipe`, `Infrastructure.Recipe`) and a type name (`Domain.Recipe.Recipe`, `Schema.NET.Recipe`). Files inside `*.Recipe` namespaces must use aliases: `DomainRecipe`, `SchemaRecipe`, `DomainRecipeIngredient`, `DomainRecipeInstruction`.
-
 ## Controller → Service → Repository
-Controllers depend on App-layer services (`IRecipeService`), never repositories. Services live in App and delegate to `IRecipeRepository`. Repository interfaces return domain types (`DomainRecipe?`), not DTOs or entity types.
+Controllers depend on App-layer services (`IRecipeService`), never repositories. Services live in App and delegate to `IRecipeRepository`. Repository interfaces return domain types (`Recipe?`), not DTOs or entity types.
 
 ## Bounded contexts
-`Identity` (User aggregate + UserSession aggregate + tokens), `Recipe` (Recipe aggregate + RecipeFavorite + embeddings), `Crawler`, `Embedding`. Each context spans Domain / App / Infrastructure layers with matching namespaces. Cross-context dependencies go through interfaces, not direct type references.
+`Identity` (User aggregate + UserSession aggregate + tokens), `Recipes` (Recipe aggregate + RecipeFavorite + embeddings), `Crawler`, `Embedding`. Each context spans Domain / App / Infrastructure layers with matching namespaces. Cross-context dependencies go through interfaces, not direct type references.
 
 ## Aggregate roots own behavior
 Behavior (validation, state transitions, invariants) lives on the aggregate, not on the service. Repositories load and save aggregates only; they do not expose child-table CRUD. App-layer services hash inputs, load the aggregate, call its behavior, and `SaveChanges`. Optimistic concurrency conflicts surface as `ConcurrencyConflictException` and translate to `AuthResult.Invalid*` variants.

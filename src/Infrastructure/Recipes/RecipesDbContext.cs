@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Pgvector.EntityFrameworkCore;
 
-namespace Infrastructure.Recipe;
+namespace Infrastructure.Recipes;
 
 public sealed class RecipesDbContext(DbContextOptions<RecipesDbContext> options)
     : DbContext(options)

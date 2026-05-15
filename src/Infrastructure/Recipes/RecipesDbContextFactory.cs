@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Pgvector.EntityFrameworkCore;
 
-namespace Infrastructure.Recipe;
+namespace Infrastructure.Recipes;
 
 public sealed class RecipesDbContextFactory : IDesignTimeDbContextFactory<RecipesDbContext>
 {

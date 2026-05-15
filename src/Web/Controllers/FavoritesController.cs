@@ -1,4 +1,4 @@
-using App.Recipe;
+using App.Recipes;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Web.Identity;

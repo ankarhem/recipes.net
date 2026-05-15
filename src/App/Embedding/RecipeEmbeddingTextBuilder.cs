@@ -1,12 +1,12 @@
+using Domain.Recipes;
 using System.Security.Cryptography;
 using System.Text;
-using DomainRecipe = Domain.Recipe.Recipe;
 
 namespace App.Embedding;
 
 public sealed class RecipeEmbeddingTextBuilder : IRecipeEmbeddingTextBuilder
 {
-    public string Build(DomainRecipe recipe)
+    public string Build(Recipe recipe)
     {
         var sb = new StringBuilder();
 

@@ -1,5 +1,5 @@
 using App.Embedding;
-using Infrastructure.Recipe;
+using Infrastructure.Recipes;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using Pgvector;

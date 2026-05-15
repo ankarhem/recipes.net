@@ -1,10 +1,11 @@
-using DomainRecipeFavorite = Domain.Recipe.RecipeFavorite;
 
-namespace App.Recipe;
+using Domain.Recipes;
+
+namespace App.Recipes;
 
 public interface IRecipeFavoriteRepository
 {
-    Task<DomainRecipeFavorite?> FindAsync(
+    Task<RecipeFavorite?> FindAsync(
         Guid userId,
         Guid recipeId,
         CancellationToken cancellationToken = default

@@ -1,9 +1,7 @@
+using Domain.Recipes;
 using System.Text.Json;
-using DomainRecipe = Domain.Recipe.Recipe;
-using DomainRecipeIngredient = Domain.Recipe.RecipeIngredient;
-using DomainRecipeInstruction = Domain.Recipe.RecipeInstruction;
 
-namespace Infrastructure.Recipe;
+namespace Infrastructure.Recipes;
 
 public sealed class RecipeEntity
 {
@@ -19,7 +17,7 @@ public sealed class RecipeEntity
     public List<RecipeIngredientEntity> IngredientEntities { get; set; } = [];
     public List<RecipeInstructionEntity> InstructionEntities { get; set; } = [];
 
-    public DomainRecipe ToDomain() =>
+    public Recipe ToDomain() =>
         new()
         {
             Id = Id,
@@ -27,11 +25,11 @@ public sealed class RecipeEntity
             Description = Description,
             ImageUrls = JsonSerializer.Deserialize<List<string>>(ImageUrlsJson) ?? [],
             Ingredients = IngredientEntities
-                .Select(e => new DomainRecipeIngredient { Text = e.Text })
+                .Select(e => new RecipeIngredient { Text = e.Text })
                 .ToList(),
             Instructions = InstructionEntities
                 .OrderBy(e => e.Position)
-                .Select(e => new DomainRecipeInstruction
+                .Select(e => new RecipeInstruction
                 {
                     Position = e.Position,
                     Text = e.Text,
@@ -41,7 +39,7 @@ public sealed class RecipeEntity
         };
 
     public static RecipeEntity FromImport(
-        DomainRecipe recipe,
+        Recipe recipe,
         string sourceUrl,
         string rawSchemaJson
     )

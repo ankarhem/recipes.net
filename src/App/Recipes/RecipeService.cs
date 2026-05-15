@@ -1,21 +1,21 @@
 using App.Embedding;
+using Domain.Recipes;
 using Microsoft.Extensions.AI;
-using DomainRecipe = Domain.Recipe.Recipe;
 
-namespace App.Recipe;
+namespace App.Recipes;
 
 public sealed class RecipeService(
     IRecipeRepository recipeRepository,
     IEmbeddingGenerator<string, Embedding<float>> embeddingGenerator
 ) : IRecipeService
 {
-    public Task<DomainRecipe?> GetRecipeAsync(
+    public Task<Recipe?> GetRecipeAsync(
         Guid id,
         CancellationToken cancellationToken = default
     ) =>
         recipeRepository.GetByIdAsync(id, cancellationToken);
 
-    public async Task<IReadOnlyList<DomainRecipe>> SearchRecipesAsync(
+    public async Task<IReadOnlyList<Recipe>> SearchRecipesAsync(
         string query,
         int limit = 10,
         CancellationToken cancellationToken = default

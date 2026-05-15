@@ -1,27 +1,25 @@
 using App.Embedding;
-using App.Recipe;
+using App.Recipes;
 using AwesomeAssertions;
+using Domain.Recipes;
 using Microsoft.Extensions.AI;
 using NSubstitute;
 using Xunit;
-using DomainRecipe = Domain.Recipe.Recipe;
-using DomainRecipeIngredient = Domain.Recipe.RecipeIngredient;
-using DomainRecipeInstruction = Domain.Recipe.RecipeInstruction;
 
 namespace App.UnitTests;
 
 public class RecipeServiceTests
 {
-    private static readonly DomainRecipe SampleRecipe = new()
+    private static readonly Recipe SampleRecipe = new()
     {
         Id = Guid.NewGuid(),
         Name = "Pasta Carbonara",
         Description = "A classic Italian dish",
         ImageUrls = Array.Empty<string>(),
-        Ingredients = [new DomainRecipeIngredient { Text = "200g spaghetti" }],
+        Ingredients = [new RecipeIngredient { Text = "200g spaghetti" }],
         Instructions =
         [
-            new DomainRecipeInstruction { Position = 1, Text = "Cook the pasta" },
+            new RecipeInstruction { Position = 1, Text = "Cook the pasta" },
         ],
     };
 
@@ -50,8 +48,8 @@ public class RecipeServiceTests
         repository
             .SearchAsync(default!, default!, default!, default!, default)
             .ReturnsForAnyArgs(
-                (Func<NSubstitute.Core.CallInfo, Task<IReadOnlyList<DomainRecipe>>>)(
-                    _ => Task.FromResult<IReadOnlyList<DomainRecipe>>([SampleRecipe])
+                (Func<NSubstitute.Core.CallInfo, Task<IReadOnlyList<Recipe>>>)(
+                    _ => Task.FromResult<IReadOnlyList<Recipe>>([SampleRecipe])
                 )
             );
 
@@ -108,8 +106,8 @@ public class RecipeServiceTests
         repository
             .SearchAsync(default!, default!, default!, default!, default)
             .ReturnsForAnyArgs(
-                (Func<NSubstitute.Core.CallInfo, Task<IReadOnlyList<DomainRecipe>>>)(
-                    _ => Task.FromResult<IReadOnlyList<DomainRecipe>>([])
+                (Func<NSubstitute.Core.CallInfo, Task<IReadOnlyList<Recipe>>>)(
+                    _ => Task.FromResult<IReadOnlyList<Recipe>>([])
                 )
             );
 
@@ -144,8 +142,8 @@ public class RecipeServiceTests
         repository
             .SearchAsync(default!, default!, default!, default!, default)
             .ReturnsForAnyArgs(
-                (Func<NSubstitute.Core.CallInfo, Task<IReadOnlyList<DomainRecipe>>>)(
-                    _ => Task.FromResult<IReadOnlyList<DomainRecipe>>([])
+                (Func<NSubstitute.Core.CallInfo, Task<IReadOnlyList<Recipe>>>)(
+                    _ => Task.FromResult<IReadOnlyList<Recipe>>([])
                 )
             );
 

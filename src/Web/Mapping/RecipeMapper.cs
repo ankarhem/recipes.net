@@ -1,11 +1,11 @@
-using DomainRecipe = Domain.Recipe.Recipe;
+using Domain.Recipes;
 using Web.Models;
 
 namespace Web.Mapping;
 
 public static class RecipeMapper
 {
-    public static GetRecipeResponse ToResponse(DomainRecipe recipe) =>
+    public static GetRecipeResponse ToResponse(Recipe recipe) =>
         new()
         {
             Id = recipe.Id,

@@ -1,6 +1,6 @@
 using App.Crawler;
 using App.Embedding;
-using App.Recipe;
+using App.Recipes;
 using AwesomeAssertions;
 using Infrastructure.Crawler;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -70,7 +70,7 @@ public class CrawlerWorkflowTests
         await using var env = await WorkflowEnvironment.StartTimeSkippingAsync();
 
         var savedRecipes =
-            new List<(Domain.Recipe.Recipe Recipe, string SourceUrl, string RawJson)>();
+            new List<(Domain.Recipes.Recipe Recipe, string SourceUrl, string RawJson)>();
 
         var client = Substitute.For<ICrawlerClient>();
         client
@@ -84,7 +84,7 @@ public class CrawlerWorkflowTests
         var repository = Substitute.For<IRecipeRepository>();
         repository
             .SaveImportedAsync(
-                Arg.Do<Domain.Recipe.Recipe>(r => savedRecipes.Add((r, "", ""))),
+                Arg.Do<Domain.Recipes.Recipe>(r => savedRecipes.Add((r, "", ""))),
                 Arg.Any<string>(),
                 Arg.Any<string>(),
                 Arg.Any<CancellationToken>()
@@ -160,7 +160,7 @@ public class CrawlerWorkflowTests
         await repository
             .DidNotReceive()
             .SaveImportedAsync(
-                Arg.Any<Domain.Recipe.Recipe>(),
+                Arg.Any<Domain.Recipes.Recipe>(),
                 Arg.Any<string>(),
                 Arg.Any<string>(),
                 Arg.Any<CancellationToken>()
@@ -277,7 +277,7 @@ public class CrawlerWorkflowTests
         await using var env = await WorkflowEnvironment.StartTimeSkippingAsync();
 
         var page2Url = new Uri("https://example.com/page2");
-        var savedRecipes = new List<Domain.Recipe.Recipe>();
+        var savedRecipes = new List<Domain.Recipes.Recipe>();
 
         var client = Substitute.For<ICrawlerClient>();
         client
@@ -297,7 +297,7 @@ public class CrawlerWorkflowTests
         var repository = Substitute.For<IRecipeRepository>();
         repository
             .SaveImportedAsync(
-                Arg.Do<Domain.Recipe.Recipe>(r => savedRecipes.Add(r)),
+                Arg.Do<Domain.Recipes.Recipe>(r => savedRecipes.Add(r)),
                 Arg.Any<string>(),
                 Arg.Any<string>(),
                 Arg.Any<CancellationToken>()
@@ -340,7 +340,7 @@ public class CrawlerWorkflowTests
 
         var page2Url = new Uri("https://example.com/page2");
         var fetchedUrls = new List<Uri>();
-        var savedRecipes = new List<Domain.Recipe.Recipe>();
+        var savedRecipes = new List<Domain.Recipes.Recipe>();
 
         var client = Substitute.For<ICrawlerClient>();
         client
@@ -360,7 +360,7 @@ public class CrawlerWorkflowTests
         var repository = Substitute.For<IRecipeRepository>();
         repository
             .SaveImportedAsync(
-                Arg.Do<Domain.Recipe.Recipe>(r => savedRecipes.Add(r)),
+                Arg.Do<Domain.Recipes.Recipe>(r => savedRecipes.Add(r)),
                 Arg.Any<string>(),
                 Arg.Any<string>(),
                 Arg.Any<CancellationToken>()

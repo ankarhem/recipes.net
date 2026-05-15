@@ -1,8 +1,9 @@
-using DomainRecipe = Domain.Recipe.Recipe;
+
+using Domain.Recipes;
 
 namespace App.Embedding;
 
 public interface IRecipeEmbeddingTextBuilder
 {
-    string Build(DomainRecipe recipe);
+    string Build(Recipe recipe);
 }

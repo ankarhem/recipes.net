@@ -2,10 +2,9 @@ using System.Text.Json;
 using AngleSharp;
 using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
-using App.Recipe;
+using App.Recipes;
 using Microsoft.Extensions.Logging;
 using Schema.NET;
-using SchemaRecipe = Schema.NET.Recipe;
 
 namespace Infrastructure.Crawler;
 
@@ -67,7 +66,7 @@ public sealed class ScraperService(ILogger<ScraperService> logger) : IScraperSer
             .ToList();
     }
 
-    private (Domain.Recipe.Recipe? Recipe, string? RawJsonLd) ExtractRecipe(IDocument document)
+    private (Domain.Recipes.Recipe? Recipe, string? RawJsonLd) ExtractRecipe(IDocument document)
     {
         var scriptNodes = document.QuerySelectorAll("script[type='application/ld+json']");
         foreach (var script in scriptNodes)
@@ -82,7 +81,7 @@ public sealed class ScraperService(ILogger<ScraperService> logger) : IScraperSer
         return (null, null);
     }
 
-    private (Domain.Recipe.Recipe Recipe, string RawJsonLd)? TryDeserializeRecipe(string jsonLd)
+    private (Domain.Recipes.Recipe Recipe, string RawJsonLd)? TryDeserializeRecipe(string jsonLd)
     {
         try
         {
@@ -100,7 +99,7 @@ public sealed class ScraperService(ILogger<ScraperService> logger) : IScraperSer
         }
     }
 
-    private static (Domain.Recipe.Recipe Recipe, string RawJsonLd)? FindRecipe(JsonElement element)
+    private static (Domain.Recipes.Recipe Recipe, string RawJsonLd)? FindRecipe(JsonElement element)
     {
         if (element.ValueKind == JsonValueKind.Array)
         {
@@ -134,7 +133,7 @@ public sealed class ScraperService(ILogger<ScraperService> logger) : IScraperSer
         return null;
     }
 
-    private static (Domain.Recipe.Recipe Recipe, string RawJsonLd)? TryDeserializeSingle(
+    private static (Domain.Recipes.Recipe Recipe, string RawJsonLd)? TryDeserializeSingle(
         JsonElement element
     )
     {
@@ -144,7 +143,7 @@ public sealed class ScraperService(ILogger<ScraperService> logger) : IScraperSer
         }
 
         var rawJson = element.GetRawText();
-        var schemaRecipe = SchemaSerializer.DeserializeObject<SchemaRecipe>(rawJson);
+        var schemaRecipe = SchemaSerializer.DeserializeObject<Schema.NET.Recipe>(rawJson);
         if (schemaRecipe is null)
         {
             return null;
