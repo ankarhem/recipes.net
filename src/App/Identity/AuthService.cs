@@ -100,7 +100,7 @@ public sealed class AuthService(
         CancellationToken cancellationToken = default
     )
     {
-        var challengeHash = TokenHash.From(TokenHasher.Hash(challengeToken));
+        var challengeHash = TokenHash.FromPlain(challengeToken);
         var user = await users.GetByTwoFactorChallengeHashAsync(challengeHash, cancellationToken);
         if (user is null)
         {
@@ -170,7 +170,7 @@ public sealed class AuthService(
         CancellationToken cancellationToken = default
     )
     {
-        var hash = TokenHash.From(TokenHasher.Hash(refreshToken));
+        var hash = TokenHash.FromPlain(refreshToken);
         var session = await userSessions.GetByTokenHashAsync(hash, cancellationToken);
 
         if (session is null || !session.IsActive(clock.UtcNow))
@@ -228,7 +228,7 @@ public sealed class AuthService(
         CancellationToken cancellationToken = default
     )
     {
-        var hash = TokenHash.From(TokenHasher.Hash(token));
+        var hash = TokenHash.FromPlain(token);
         var user = await users.GetByEmailVerificationTokenHashAsync(hash, cancellationToken);
         if (user is null)
         {
@@ -331,7 +331,7 @@ public sealed class AuthService(
         CancellationToken cancellationToken = default
     )
     {
-        var hash = TokenHash.From(TokenHasher.Hash(token));
+        var hash = TokenHash.FromPlain(token);
         var user = await users.GetByPasswordResetTokenHashAsync(hash, cancellationToken);
         if (user is null)
         {

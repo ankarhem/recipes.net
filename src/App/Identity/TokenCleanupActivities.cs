@@ -10,7 +10,7 @@ public sealed class TokenCleanupActivities(IUserRepository users, IClock clock)
     public async Task DeleteEmailVerificationTokenAsync(string plainToken)
     {
         var ct = ActivityExecutionContext.Current.CancellationToken;
-        var hash = TokenHash.From(TokenHasher.Hash(plainToken));
+        var hash = TokenHash.FromPlain(plainToken);
         var user = await users.GetByEmailVerificationTokenHashAsync(hash, ct);
         if (user is null)
         {
@@ -27,7 +27,7 @@ public sealed class TokenCleanupActivities(IUserRepository users, IClock clock)
     public async Task DeletePasswordResetTokenAsync(string plainToken)
     {
         var ct = ActivityExecutionContext.Current.CancellationToken;
-        var hash = TokenHash.From(TokenHasher.Hash(plainToken));
+        var hash = TokenHash.FromPlain(plainToken);
         var user = await users.GetByPasswordResetTokenHashAsync(hash, ct);
         if (user is null)
         {

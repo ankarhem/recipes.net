@@ -146,7 +146,7 @@ public class AuthServiceTests
         await ctx.UserRepository
             .Received(1)
             .GetByTwoFactorChallengeHashAsync(
-                TokenHash.From(TokenHasher.Hash("missing-challenge")),
+                TokenHash.FromPlain("missing-challenge"),
                 Arg.Any<CancellationToken>()
             );
         await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
@@ -410,7 +410,7 @@ public class AuthServiceTests
         await ctx.UserSessionRepository
             .Received(1)
             .GetByTokenHashAsync(
-                TokenHash.From(TokenHasher.Hash("missing-refresh-token")),
+                TokenHash.FromPlain("missing-refresh-token"),
                 Arg.Any<CancellationToken>()
             );
         await ctx.UserSessionRepository
@@ -518,7 +518,7 @@ public class AuthServiceTests
     {
         var ctx = CreateSut();
         var user = CreateUnverifiedUser(ctx.Clock);
-        var verificationHash = TokenHash.From(TokenHasher.Hash("verification-token"));
+        var verificationHash = TokenHash.FromPlain("verification-token");
         var token = user.IssueEmailVerificationToken(
             verificationHash,
             ctx.Clock.UtcNow.AddHours(1),
@@ -561,7 +561,7 @@ public class AuthServiceTests
         await ctx.UserRepository
             .Received(1)
             .GetByEmailVerificationTokenHashAsync(
-                TokenHash.From(TokenHasher.Hash("missing-token")),
+                TokenHash.FromPlain("missing-token"),
                 Arg.Any<CancellationToken>()
             );
         await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
@@ -574,7 +574,7 @@ public class AuthServiceTests
     {
         var ctx = CreateSut();
         var user = CreateUnverifiedUser(ctx.Clock);
-        var hash = TokenHash.From(TokenHasher.Hash("consumed-token"));
+        var hash = TokenHash.FromPlain("consumed-token");
         var token = user.IssueEmailVerificationToken(hash, ctx.Clock.UtcNow.AddHours(1), ctx.Clock);
         user.VerifyEmail(hash, ctx.Clock).Should().BeTrue();
         GivenUserByVerificationToken(ctx, user);
@@ -594,7 +594,7 @@ public class AuthServiceTests
     {
         var ctx = CreateSut();
         var user = CreateUnverifiedUser(ctx.Clock);
-        var hash = TokenHash.From(TokenHasher.Hash("expired-token"));
+        var hash = TokenHash.FromPlain("expired-token");
         var token = user.IssueEmailVerificationToken(hash, ctx.Clock.UtcNow.AddMinutes(-1), ctx.Clock);
         GivenUserByVerificationToken(ctx, user);
 
@@ -614,7 +614,7 @@ public class AuthServiceTests
     {
         var ctx = CreateSut();
         var user = CreateUnverifiedUser(ctx.Clock);
-        var hash = TokenHash.From(TokenHasher.Hash("race-token"));
+        var hash = TokenHash.FromPlain("race-token");
         user.IssueEmailVerificationToken(hash, ctx.Clock.UtcNow.AddHours(1), ctx.Clock);
         GivenUserByVerificationToken(ctx, user);
         ctx.UserRepository
@@ -762,7 +762,7 @@ public class AuthServiceTests
     {
         var ctx = CreateSut();
         var user = CreateVerifiedUser(ctx.Clock);
-        var resetHash = TokenHash.From(TokenHasher.Hash("reset-token"));
+        var resetHash = TokenHash.FromPlain("reset-token");
         var resetToken = user.IssuePasswordResetToken(resetHash, ctx.Clock.UtcNow.AddHours(1), ctx.Clock);
         GivenUserByResetToken(ctx, user);
         ctx.PasswordHasher.Hash("new-password").Returns("new-password-hash");
@@ -804,7 +804,7 @@ public class AuthServiceTests
         await ctx.UserRepository
             .Received(1)
             .GetByPasswordResetTokenHashAsync(
-                TokenHash.From(TokenHasher.Hash("missing-token")),
+                TokenHash.FromPlain("missing-token"),
                 Arg.Any<CancellationToken>()
             );
         ctx.PasswordHasher.DidNotReceiveWithAnyArgs().Hash(default!);
@@ -821,7 +821,7 @@ public class AuthServiceTests
     {
         var ctx = CreateSut();
         var user = CreateVerifiedUser(ctx.Clock);
-        var hash = TokenHash.From(TokenHasher.Hash("consumed-reset-token"));
+        var hash = TokenHash.FromPlain("consumed-reset-token");
         user.IssuePasswordResetToken(hash, ctx.Clock.UtcNow.AddHours(1), ctx.Clock);
         user.ResetPassword(hash, PasswordHash.From("temporary-new-hash"), ctx.Clock).Should().BeTrue();
         GivenUserByResetToken(ctx, user);
@@ -843,7 +843,7 @@ public class AuthServiceTests
     {
         var ctx = CreateSut();
         var user = CreateVerifiedUser(ctx.Clock);
-        var hash = TokenHash.From(TokenHasher.Hash("expired-reset-token"));
+        var hash = TokenHash.FromPlain("expired-reset-token");
         var token = user.IssuePasswordResetToken(hash, ctx.Clock.UtcNow.AddMinutes(-1), ctx.Clock);
         GivenUserByResetToken(ctx, user);
 
@@ -865,7 +865,7 @@ public class AuthServiceTests
     {
         var ctx = CreateSut();
         var user = CreateVerifiedUser(ctx.Clock);
-        var hash = TokenHash.From(TokenHasher.Hash("race-reset-token"));
+        var hash = TokenHash.FromPlain("race-reset-token");
         user.IssuePasswordResetToken(hash, ctx.Clock.UtcNow.AddHours(1), ctx.Clock);
         GivenUserByResetToken(ctx, user);
         ctx.PasswordHasher.Hash("new-password").Returns("new-password-hash");
@@ -1055,7 +1055,7 @@ public class AuthServiceTests
     ) =>
         UserSession.Issue(
             userId,
-            TokenHash.From(TokenHasher.Hash(plainRefreshToken)),
+            TokenHash.FromPlain(plainRefreshToken),
             expiresAt ?? clock.UtcNow.AddDays(1),
             clock
         );
@@ -1106,7 +1106,7 @@ public class AuthServiceTests
         TimeSpan expiresIn
     )
     {
-        var hash = TokenHash.From(TokenHasher.Hash(plainToken));
+        var hash = TokenHash.FromPlain(plainToken);
         user.IssueTwoFactorChallenge(hash, clock.UtcNow.Add(expiresIn), clock);
         return hash;
     }
