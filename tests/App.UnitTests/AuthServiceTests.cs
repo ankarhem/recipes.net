@@ -51,7 +51,7 @@ public class AuthServiceTests
                 Arg.Any<CancellationToken>()
             );
         await ctx.UserRepository.Received(1).AddAsync(addedUser, Arg.Any<CancellationToken>());
-        await ctx.UserRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await ctx.UnitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
         await ctx.EmailWorkflowStarter
             .Received(1)
             .StartVerificationWorkflowAsync(
@@ -77,7 +77,7 @@ public class AuthServiceTests
         ctx.PasswordHasher.DidNotReceiveWithAnyArgs().Hash(default!);
         ctx.SecureTokenGenerator.DidNotReceiveWithAnyArgs().Generate();
         await ctx.UserRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
-        await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.UnitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
         await ctx.EmailWorkflowStarter
             .DidNotReceiveWithAnyArgs()
             .StartVerificationWorkflowAsync(default, default!, default!, default);
@@ -109,7 +109,7 @@ public class AuthServiceTests
                 ),
                 Arg.Any<CancellationToken>()
             );
-        await ctx.UserSessionRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await ctx.UnitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -130,7 +130,7 @@ public class AuthServiceTests
         var challenge = user.TwoFactorChallenges.Should().ContainSingle().Which;
         challenge.TokenHash.Should().Be(TokenHash.From("challenge-hash"));
         challenge.ExpiresAt.Should().Be(ctx.Clock.UtcNow.AddMinutes(5));
-        await ctx.UserRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await ctx.UnitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
         ctx.AccessTokenService.DidNotReceiveWithAnyArgs().Generate(default, default!);
         await ctx.UserSessionRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
     }
@@ -150,7 +150,7 @@ public class AuthServiceTests
                 TokenHash.FromPlain("missing-challenge"),
                 Arg.Any<CancellationToken>()
             );
-        await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.UnitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
         await ctx.UserSessionRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
     }
 
@@ -166,7 +166,7 @@ public class AuthServiceTests
 
         result.Should().BeOfType<AuthResult.ChallengeTokenExpired>();
         user.TwoFactorChallenges.Single(c => c.TokenHash == challengeHash).ConsumedAt.Should().BeNull();
-        await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.UnitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
         await ctx.UserSessionRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
     }
 
@@ -182,7 +182,7 @@ public class AuthServiceTests
         var result = await ctx.Sut.VerifyTotpAsync("consumed-challenge", "123456");
 
         result.Should().BeOfType<AuthResult.InvalidChallengeToken>();
-        await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.UnitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
         await ctx.UserSessionRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
     }
 
@@ -206,7 +206,7 @@ public class AuthServiceTests
         success.RefreshToken.Should().Be("refresh-token");
         user.Totp!.LastUsedStep.Should().Be(101);
         user.TwoFactorChallenges.Single(c => c.TokenHash == challengeHash).ConsumedAt.Should().Be(ctx.Clock.UtcNow);
-        await ctx.UserRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await ctx.UnitOfWork.Received(2).SaveChangesAsync(Arg.Any<CancellationToken>());
         await ctx.UserSessionRepository
             .Received(1)
             .AddAsync(
@@ -233,7 +233,7 @@ public class AuthServiceTests
         result.Should().BeOfType<AuthResult.InvalidTwoFactorCode>();
         user.Totp!.LastUsedStep.Should().Be(100);
         user.TwoFactorChallenges.Single().ConsumedAt.Should().BeNull();
-        await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.UnitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
         await ctx.UserSessionRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
     }
 
@@ -251,7 +251,7 @@ public class AuthServiceTests
 
         result.Should().BeOfType<AuthResult.InvalidTwoFactorCode>();
         user.TwoFactorChallenges.Single().ConsumedAt.Should().BeNull();
-        await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.UnitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
         await ctx.UserSessionRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
     }
 
@@ -276,7 +276,7 @@ public class AuthServiceTests
         user.HasTwoFactorEnabled.Should().BeFalse();
         user.Totp.Should().BeNull();
         user.RecoveryCodes.Should().BeEmpty();
-        await ctx.UserRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await ctx.UnitOfWork.Received(2).SaveChangesAsync(Arg.Any<CancellationToken>());
         await ctx.UserSessionRepository.Received(1).AddAsync(Arg.Any<UserSession>(), Arg.Any<CancellationToken>());
         await ctx.UnitOfWorkScope.Received(1).CommitAsync(Arg.Any<CancellationToken>());
     }
@@ -296,7 +296,7 @@ public class AuthServiceTests
 
         result.Should().BeOfType<AuthResult.InvalidTwoFactorCode>();
         user.TwoFactorChallenges.Single().ConsumedAt.Should().BeNull();
-        await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.UnitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
         await ctx.UserSessionRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
     }
 
@@ -314,7 +314,7 @@ public class AuthServiceTests
         result.Should().BeOfType<AuthResult.InvalidTwoFactorCode>();
         user.RecoveryCodes.Single().IsConsumed.Should().BeFalse();
         user.TwoFactorChallenges.Single().ConsumedAt.Should().BeNull();
-        await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.UnitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
         await ctx.UserSessionRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
     }
 
@@ -386,7 +386,7 @@ public class AuthServiceTests
         success.RefreshToken.Should().Be("new-refresh-token");
         session.IsRevoked.Should().BeTrue();
         session.RevokedAt.Should().Be(ctx.Clock.UtcNow);
-        await ctx.UserSessionRepository.Received(2).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await ctx.UnitOfWork.Received(2).SaveChangesAsync(Arg.Any<CancellationToken>());
         await ctx.UserSessionRepository
             .Received(1)
             .AddAsync(
@@ -417,7 +417,7 @@ public class AuthServiceTests
         await ctx.UserSessionRepository
             .DidNotReceiveWithAnyArgs()
             .RevokeAllForUserAsync(default, default);
-        await ctx.UserSessionRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.UnitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
         await ctx.UserSessionRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
     }
 
@@ -441,7 +441,7 @@ public class AuthServiceTests
             .Received(1)
             .RevokeAllForUserAsync(user.Id, Arg.Any<CancellationToken>());
         session.IsRevoked.Should().BeFalse();
-        await ctx.UserSessionRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.UnitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
         await ctx.UserRepository.DidNotReceiveWithAnyArgs().GetByIdAsync(default, default);
         ctx.AccessTokenService.DidNotReceiveWithAnyArgs().Generate(default, default!);
         ctx.SecureTokenGenerator.DidNotReceiveWithAnyArgs().Generate();
@@ -462,7 +462,7 @@ public class AuthServiceTests
         await ctx.UserSessionRepository
             .Received(1)
             .RevokeAllForUserAsync(user.Id, Arg.Any<CancellationToken>());
-        await ctx.UserSessionRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.UnitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
         await ctx.UserRepository.DidNotReceiveWithAnyArgs().GetByIdAsync(default, default);
         ctx.AccessTokenService.DidNotReceiveWithAnyArgs().Generate(default, default!);
         ctx.SecureTokenGenerator.DidNotReceiveWithAnyArgs().Generate();
@@ -475,7 +475,7 @@ public class AuthServiceTests
         var user = CreateVerifiedUser(ctx.Clock);
         var session = CreateSession(user.Id, "refresh-token", ctx.Clock);
         GivenSessionByRefreshToken(ctx, session);
-        ctx.UserSessionRepository
+        ctx.UnitOfWork
             .When(x => x.SaveChangesAsync(Arg.Any<CancellationToken>()))
             .Do(_ => throw new ConcurrencyConflictException("test"));
 
@@ -505,7 +505,7 @@ public class AuthServiceTests
 
         result.Should().BeOfType<AuthResult.EmailNotVerified>();
         session.IsRevoked.Should().BeTrue();
-        await ctx.UserSessionRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await ctx.UnitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
         await ctx.UserSessionRepository
             .Received(1)
             .RevokeAllForUserAsync(user.Id, Arg.Any<CancellationToken>());
@@ -538,7 +538,7 @@ public class AuthServiceTests
         user.EmailVerified.Should().BeTrue();
         user.EmailVerifiedAt.Should().Be(ctx.Clock.UtcNow);
         token.ConsumedAt.Should().Be(ctx.Clock.UtcNow);
-        await ctx.UserRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await ctx.UnitOfWork.Received(2).SaveChangesAsync(Arg.Any<CancellationToken>());
         await ctx.UserSessionRepository
             .Received(1)
             .AddAsync(
@@ -565,7 +565,7 @@ public class AuthServiceTests
                 TokenHash.FromPlain("missing-token"),
                 Arg.Any<CancellationToken>()
             );
-        await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.UnitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
         await ctx.UserSessionRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
         ctx.AccessTokenService.DidNotReceiveWithAnyArgs().Generate(default, default!);
     }
@@ -584,7 +584,7 @@ public class AuthServiceTests
 
         result.Should().BeOfType<AuthResult.InvalidVerificationToken>();
         token.IsConsumed.Should().BeTrue();
-        await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.UnitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
         await ctx.UserSessionRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
         ctx.AccessTokenService.DidNotReceiveWithAnyArgs().Generate(default, default!);
         ctx.SecureTokenGenerator.DidNotReceiveWithAnyArgs().Generate();
@@ -604,7 +604,7 @@ public class AuthServiceTests
         result.Should().BeOfType<AuthResult.VerificationTokenExpired>();
         user.EmailVerified.Should().BeFalse();
         token.ConsumedAt.Should().BeNull();
-        await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.UnitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
         await ctx.UserSessionRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
         ctx.AccessTokenService.DidNotReceiveWithAnyArgs().Generate(default, default!);
         ctx.SecureTokenGenerator.DidNotReceiveWithAnyArgs().Generate();
@@ -618,7 +618,7 @@ public class AuthServiceTests
         var hash = TokenHash.FromPlain("race-token");
         user.IssueEmailVerificationToken(hash, ctx.Clock.UtcNow.AddHours(1), ctx.Clock);
         GivenUserByVerificationToken(ctx, user);
-        ctx.UserRepository
+        ctx.UnitOfWork
             .When(x => x.SaveChangesAsync(Arg.Any<CancellationToken>()))
             .Do(_ => throw new ConcurrencyConflictException("test"));
 
@@ -650,7 +650,7 @@ public class AuthServiceTests
         var freshToken = user.EmailVerificationTokens.Should().ContainSingle().Which;
         freshToken.TokenHash.Should().Be(TokenHash.From("new-verification-hash"));
         freshToken.ExpiresAt.Should().Be(ctx.Clock.UtcNow.AddHours(24));
-        await ctx.UserRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await ctx.UnitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
         await ctx.EmailWorkflowStarter
             .Received(1)
             .StartVerificationWorkflowAsync(
@@ -671,7 +671,7 @@ public class AuthServiceTests
         var result = await ctx.Sut.ResendVerificationAsync("test@example.com");
 
         result.Should().BeOfType<AuthResult.EmailVerificationSent>();
-        await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.UnitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
         await ctx.EmailWorkflowStarter
             .DidNotReceiveWithAnyArgs()
             .StartVerificationWorkflowAsync(default, default!, default!, default);
@@ -687,7 +687,7 @@ public class AuthServiceTests
         var result = await ctx.Sut.ResendVerificationAsync("missing@example.com");
 
         result.Should().BeOfType<AuthResult.EmailVerificationSent>();
-        await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.UnitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
         await ctx.EmailWorkflowStarter
             .DidNotReceiveWithAnyArgs()
             .StartVerificationWorkflowAsync(default, default!, default!, default);
@@ -713,7 +713,7 @@ public class AuthServiceTests
         var resetToken = user.PasswordResetTokens.Should().ContainSingle().Which;
         resetToken.TokenHash.Should().Be(TokenHash.From("new-reset-hash"));
         resetToken.ExpiresAt.Should().Be(ctx.Clock.UtcNow.AddMinutes(60));
-        await ctx.UserRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await ctx.UnitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
         await ctx.EmailWorkflowStarter
             .Received(1)
             .StartPasswordResetWorkflowAsync(
@@ -735,7 +735,7 @@ public class AuthServiceTests
 
         result.Should().BeOfType<AuthResult.PasswordResetSent>();
         user.PasswordResetTokens.Should().BeEmpty();
-        await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.UnitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
         await ctx.EmailWorkflowStarter
             .DidNotReceiveWithAnyArgs()
             .StartPasswordResetWorkflowAsync(default, default!, default!, default);
@@ -751,7 +751,7 @@ public class AuthServiceTests
         var result = await ctx.Sut.ForgotPasswordAsync("missing@example.com");
 
         result.Should().BeOfType<AuthResult.PasswordResetSent>();
-        await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.UnitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
         await ctx.EmailWorkflowStarter
             .DidNotReceiveWithAnyArgs()
             .StartPasswordResetWorkflowAsync(default, default!, default!, default);
@@ -778,7 +778,7 @@ public class AuthServiceTests
         success.RefreshToken.Should().Be("fresh-refresh-token");
         user.PasswordHash.Value.Should().Be("new-password-hash");
         resetToken.ConsumedAt.Should().Be(ctx.Clock.UtcNow);
-        await ctx.UserRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await ctx.UnitOfWork.Received(2).SaveChangesAsync(Arg.Any<CancellationToken>());
         await ctx.UserSessionRepository
             .Received(1)
             .RevokeAllForUserAsync(user.Id, Arg.Any<CancellationToken>());
@@ -809,7 +809,7 @@ public class AuthServiceTests
                 Arg.Any<CancellationToken>()
             );
         ctx.PasswordHasher.DidNotReceiveWithAnyArgs().Hash(default!);
-        await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.UnitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
         await ctx.UserSessionRepository
             .DidNotReceiveWithAnyArgs()
             .RevokeAllForUserAsync(default, default);
@@ -831,7 +831,7 @@ public class AuthServiceTests
 
         result.Should().BeOfType<AuthResult.InvalidResetToken>();
         ctx.PasswordHasher.DidNotReceiveWithAnyArgs().Hash(default!);
-        await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.UnitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
         await ctx.UserSessionRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
         await ctx.UserSessionRepository
             .DidNotReceiveWithAnyArgs()
@@ -853,7 +853,7 @@ public class AuthServiceTests
         result.Should().BeOfType<AuthResult.ResetTokenExpired>();
         token.ConsumedAt.Should().BeNull();
         ctx.PasswordHasher.DidNotReceiveWithAnyArgs().Hash(default!);
-        await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.UnitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
         await ctx.UserSessionRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
         await ctx.UserSessionRepository
             .DidNotReceiveWithAnyArgs()
@@ -870,7 +870,7 @@ public class AuthServiceTests
         user.IssuePasswordResetToken(hash, ctx.Clock.UtcNow.AddHours(1), ctx.Clock);
         GivenUserByResetToken(ctx, user);
         ctx.PasswordHasher.Hash("new-password").Returns("new-password-hash");
-        ctx.UserRepository
+        ctx.UnitOfWork
             .When(x => x.SaveChangesAsync(Arg.Any<CancellationToken>()))
             .Do(_ => throw new ConcurrencyConflictException("test"));
 
@@ -935,10 +935,6 @@ public class AuthServiceTests
         userRepository
             .AddAsync(default!, default)
             .ReturnsForAnyArgs((Func<CallInfo, Task>)(_ => Task.CompletedTask));
-        userRepository
-            .SaveChangesAsync(default)
-            .ReturnsForAnyArgs((Func<CallInfo, Task>)(_ => Task.CompletedTask));
-
         userSessionRepository
             .GetByTokenHashAsync(default!, default)
             .ReturnsForAnyArgs(
@@ -961,9 +957,7 @@ public class AuthServiceTests
         userSessionRepository
             .RevokeAllForUserAsync(default, default)
             .ReturnsForAnyArgs((Func<CallInfo, Task>)(_ => Task.CompletedTask));
-        userSessionRepository
-            .SaveChangesAsync(default)
-            .ReturnsForAnyArgs((Func<CallInfo, Task>)(_ => Task.CompletedTask));
+        unitOfWork.SaveChangesAsync(default).ReturnsForAnyArgs(Task.CompletedTask);
 
         passwordHasher.Hash(default!).ReturnsForAnyArgs("hashed-password");
         passwordHasher.Verify(default!, default!).ReturnsForAnyArgs(false);

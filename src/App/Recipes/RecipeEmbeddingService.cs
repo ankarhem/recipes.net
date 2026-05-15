@@ -2,19 +2,20 @@ using Domain.Recipes;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 
-namespace App.Embedding;
+namespace App.Recipes;
 
-public sealed class EmbeddingService(
+public sealed class RecipeEmbeddingService(
     IRecipeEmbeddingTextBuilder textBuilder,
     IRecipeEmbeddingRepository repository,
+    IUnitOfWork unitOfWork,
     IEmbeddingGenerator<string, Embedding<float>> embeddingGenerator,
-    ILogger<EmbeddingService> logger
-) : IEmbeddingService
+    ILogger<RecipeEmbeddingService> logger
+) : IRecipeEmbeddingService
 {
     public async Task EnsureRecipeEmbeddingAsync(
         Guid recipeId,
         Recipe recipe,
-        EmbeddingModel model,
+        RecipeEmbeddingModel model,
         CancellationToken cancellationToken = default
     )
     {
@@ -54,6 +55,7 @@ public sealed class EmbeddingService(
             embedding.Vector,
             cancellationToken
         );
+        await unitOfWork.SaveChangesAsync(cancellationToken);
 
         logger.LogInformation(
             "Generated embedding for recipe {RecipeId} using {Model} ({Dimensions}d)",

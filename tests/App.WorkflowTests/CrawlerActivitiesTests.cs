@@ -15,12 +15,14 @@ public class CrawlerActivitiesTests
     private static CrawlerActivities CreateActivities(
         ICrawlerClient? client = null,
         IScraperService? scraper = null,
-        IRecipeRepository? repository = null
+        IRecipeRepository? repository = null,
+        IUnitOfWork? unitOfWork = null
     ) =>
         new(
             client ?? Substitute.For<ICrawlerClient>(),
             scraper ?? Substitute.For<IScraperService>(),
             repository ?? Substitute.For<IRecipeRepository>(),
+            unitOfWork ?? Substitute.For<IUnitOfWork>(),
             NullLogger<CrawlerActivities>.Instance
         );
 
@@ -141,5 +143,42 @@ public class CrawlerActivitiesTests
 
         ex.Message.Should().Contain("network error");
         ex.NonRetryable.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task SaveRecipeAsync_StagesRecipeThenCommitsUnitOfWork()
+    {
+        var repository = Substitute.For<IRecipeRepository>();
+        var unitOfWork = Substitute.For<IUnitOfWork>();
+        var recipeId = Domain.Recipes.RecipeId.New();
+        var recipe = new Domain.Recipes.Recipe
+        {
+            Id = recipeId,
+            Name = "Cake",
+            ImageUrls = [],
+            SuitableForDiets = [],
+            Ingredients = [],
+            Instructions = [],
+        };
+        repository
+            .SaveImportedAsync(default!, default!, default!, default)
+            .ReturnsForAnyArgs(recipeId);
+        unitOfWork.SaveChangesAsync(default).ReturnsForAnyArgs(Task.CompletedTask);
+        var activities = CreateActivities(repository: repository, unitOfWork: unitOfWork);
+        var env = new ActivityEnvironment();
+
+        var result = await env.RunAsync(() =>
+            activities.SaveRecipeAsync(recipe, "https://example.com/cake", "{}")
+        );
+
+        result.Should().Be(recipeId.Value);
+        await repository.Received(1)
+            .SaveImportedAsync(
+                recipe,
+                "https://example.com/cake",
+                "{}",
+                Arg.Any<CancellationToken>()
+            );
+        await unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 }

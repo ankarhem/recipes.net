@@ -39,7 +39,7 @@ public sealed record Recipe
 
         return new Recipe
         {
-            Id = Guid.NewGuid(),
+            Id = RecipeId.New(),
             Name = name,
             Description = description,
             ImageUrls = imageUrls,
@@ -57,7 +57,7 @@ public sealed record Recipe
         };
     }
 
-    public required Guid Id { get; init; }
+    public required RecipeId Id { get; init; }
     public string? Name { get; init; }
     public string? Description { get; init; }
     public required IReadOnlyList<string> ImageUrls { get; init; }

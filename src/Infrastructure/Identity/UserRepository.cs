@@ -1,4 +1,3 @@
-using App;
 using App.Identity;
 using Domain.Identity;
 using Infrastructure.Recipes;
@@ -49,21 +48,6 @@ public sealed class UserRepository(RecipesDbContext db) : IUserRepository
     public async Task AddAsync(User user, CancellationToken cancellationToken = default)
     {
         await db.Users.AddAsync(user, cancellationToken);
-    }
-
-    public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            await db.SaveChangesAsync(cancellationToken);
-        }
-        catch (DbUpdateConcurrencyException ex)
-        {
-            throw new ConcurrencyConflictException(
-                "Concurrent modification detected on user aggregate.",
-                ex
-            );
-        }
     }
 
     private IQueryable<User> QueryWithAggregate() =>

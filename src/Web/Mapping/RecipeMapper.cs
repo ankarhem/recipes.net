@@ -8,7 +8,7 @@ public static class RecipeMapper
     public static GetRecipeResponse ToResponse(Recipe recipe) =>
         new()
         {
-            Id = recipe.Id,
+            Id = recipe.Id.Value,
             Name = recipe.Name ?? "Untitled",
             Description = recipe.Description,
             ImageUrls = recipe.ImageUrls,

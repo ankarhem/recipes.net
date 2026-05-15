@@ -13,8 +13,8 @@ using Pgvector;
 namespace Infrastructure.Migrations
 {
     [DbContext(typeof(RecipesDbContext))]
-    [Migration("20260515080306_Add2Fa")]
-    partial class Add2Fa
+    [Migration("20260515192224_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -260,7 +260,7 @@ namespace Infrastructure.Migrations
                     b.ToTable("RefreshTokens", (string)null);
                 });
 
-            modelBuilder.Entity("Infrastructure.Embedding.RecipeEmbeddingEntity", b =>
+            modelBuilder.Entity("Infrastructure.Recipes.RecipeEmbeddingEntity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -300,7 +300,7 @@ namespace Infrastructure.Migrations
                     b.ToTable("RecipeEmbeddings");
                 });
 
-            modelBuilder.Entity("Infrastructure.Recipes.RecipeEntity", b =>
+            modelBuilder.Entity("Infrastructure.Recipes.RecipeCollectionEntity", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -308,6 +308,86 @@ namespace Infrastructure.Migrations
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid>("OwnerUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Visibility")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OwnerUserId");
+
+                    b.HasIndex("OwnerUserId", "Kind")
+                        .IsUnique()
+                        .HasFilter("\"Kind\" = 'Favorites'");
+
+                    b.ToTable("RecipeCollections");
+                });
+
+            modelBuilder.Entity("Infrastructure.Recipes.RecipeCollectionItemEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("AddedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CollectionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("RecipeId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RecipeId");
+
+                    b.HasIndex("CollectionId", "RecipeId")
+                        .IsUnique();
+
+                    b.ToTable("RecipeCollectionItems");
+                });
+
+            modelBuilder.Entity("Infrastructure.Recipes.RecipeEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Category")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<TimeSpan?>("CookTime")
+                        .HasColumnType("interval");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Cuisine")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
 
                     b.Property<string>("Description")
                         .HasColumnType("text");
@@ -324,6 +404,21 @@ namespace Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<TimeSpan?>("PrepTime")
+                        .HasColumnType("interval");
+
+                    b.Property<int?>("ServingsCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string[]>("SuitableForDiets")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text[]")
+                        .HasDefaultValueSql("ARRAY[]::text[]");
+
+                    b.Property<TimeSpan?>("TotalTime")
+                        .HasColumnType("interval");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -337,24 +432,6 @@ namespace Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("Recipes");
-                });
-
-            modelBuilder.Entity("Infrastructure.Recipes.RecipeFavoriteEntity", b =>
-                {
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("RecipeId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("UserId", "RecipeId");
-
-                    b.HasIndex("RecipeId");
-
-                    b.ToTable("RecipeFavorites");
                 });
 
             modelBuilder.Entity("Infrastructure.Recipes.RecipeIngredientEntity", b =>
@@ -457,7 +534,7 @@ namespace Infrastructure.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Infrastructure.Embedding.RecipeEmbeddingEntity", b =>
+            modelBuilder.Entity("Infrastructure.Recipes.RecipeEmbeddingEntity", b =>
                 {
                     b.HasOne("Infrastructure.Recipes.RecipeEntity", "Recipe")
                         .WithMany()
@@ -468,19 +545,21 @@ namespace Infrastructure.Migrations
                     b.Navigation("Recipe");
                 });
 
-            modelBuilder.Entity("Infrastructure.Recipes.RecipeFavoriteEntity", b =>
+            modelBuilder.Entity("Infrastructure.Recipes.RecipeCollectionItemEntity", b =>
                 {
+                    b.HasOne("Infrastructure.Recipes.RecipeCollectionEntity", "Collection")
+                        .WithMany("Items")
+                        .HasForeignKey("CollectionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("Infrastructure.Recipes.RecipeEntity", "Recipe")
                         .WithMany()
                         .HasForeignKey("RecipeId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Domain.Identity.User", null)
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                    b.Navigation("Collection");
 
                     b.Navigation("Recipe");
                 });
@@ -518,6 +597,11 @@ namespace Infrastructure.Migrations
                     b.Navigation("Totp");
 
                     b.Navigation("TwoFactorChallenges");
+                });
+
+            modelBuilder.Entity("Infrastructure.Recipes.RecipeCollectionEntity", b =>
+                {
+                    b.Navigation("Items");
                 });
 
             modelBuilder.Entity("Infrastructure.Recipes.RecipeEntity", b =>

@@ -8,7 +8,7 @@ The app is not deployed and is under active developement.
 Controllers depend on App-layer services (`IRecipeService`), never repositories. Services live in App and delegate to `IRecipeRepository`. Repository interfaces return domain types (`Recipe?`), not DTOs or entity types.
 
 ## Bounded contexts
-`Identity` (User aggregate + UserSession aggregate + tokens), `Recipes` (Recipe aggregate + RecipeFavorite + embeddings), `Crawler`, `Embedding`. Each context spans Domain / App / Infrastructure layers with matching namespaces. Cross-context dependencies go through interfaces, not direct type references.
+`Identity` (User aggregate + UserSession aggregate + tokens), `Recipes` (Recipe aggregate + RecipeCollection aggregate + embeddings), `Crawler`, `Embedding`. Each context spans Domain / App / Infrastructure layers with matching namespaces. Cross-context dependencies go through interfaces, not direct type references.
 
 ## Aggregate roots own behavior
 Behavior (validation, state transitions, invariants) lives on the aggregate, not on the service. Repositories load and save aggregates only; they do not expose child-table CRUD. App-layer services hash inputs, load the aggregate, call its behavior, and `SaveChanges`. Optimistic concurrency conflicts surface as `ConcurrencyConflictException` and translate to `AuthResult.Invalid*` variants.

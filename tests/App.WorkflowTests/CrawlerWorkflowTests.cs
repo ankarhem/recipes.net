@@ -1,5 +1,4 @@
 using App.Crawler;
-using App.Embedding;
 using App.Recipes;
 using AwesomeAssertions;
 using Infrastructure.Crawler;
@@ -82,6 +81,7 @@ public class CrawlerWorkflowTests
             );
 
         var repository = Substitute.For<IRecipeRepository>();
+        var unitOfWork = Substitute.For<IUnitOfWork>();
         repository
             .SaveImportedAsync(
                 Arg.Do<Domain.Recipes.Recipe>(r => savedRecipes.Add((r, "", ""))),
@@ -89,14 +89,10 @@ public class CrawlerWorkflowTests
                 Arg.Any<string>(),
                 Arg.Any<CancellationToken>()
             )
-            .Returns(Guid.NewGuid());
+            .Returns(new Domain.Recipes.RecipeId(Guid.NewGuid()));
+        unitOfWork.SaveChangesAsync(default).ReturnsForAnyArgs(Task.CompletedTask);
 
-        var activities = new CrawlerActivities(
-            client,
-            CreateScraperService(),
-            repository,
-            NullLogger<CrawlerActivities>.Instance
-        );
+        var activities = new CrawlerActivities(client, CreateScraperService(), repository, unitOfWork, NullLogger<CrawlerActivities>.Instance);
 
         using var worker = new TemporalWorker(
             env.Client,
@@ -133,12 +129,7 @@ public class CrawlerWorkflowTests
 
         var repository = Substitute.For<IRecipeRepository>();
 
-        var activities = new CrawlerActivities(
-            client,
-            CreateScraperService(),
-            repository,
-            NullLogger<CrawlerActivities>.Instance
-        );
+        var activities = new CrawlerActivities(client, CreateScraperService(), repository, Substitute.For<IUnitOfWork>(), NullLogger<CrawlerActivities>.Instance);
 
         using var worker = new TemporalWorker(
             env.Client,
@@ -190,12 +181,7 @@ public class CrawlerWorkflowTests
                 )
             );
 
-        var activities = new CrawlerActivities(
-            client,
-            CreateScraperService(),
-            Substitute.For<IRecipeRepository>(),
-            NullLogger<CrawlerActivities>.Instance
-        );
+        var activities = new CrawlerActivities(client, CreateScraperService(), Substitute.For<IRecipeRepository>(), Substitute.For<IUnitOfWork>(), NullLogger<CrawlerActivities>.Instance);
 
         using var worker = new TemporalWorker(
             env.Client,
@@ -241,12 +227,7 @@ public class CrawlerWorkflowTests
                 )
             );
 
-        var activities = new CrawlerActivities(
-            client,
-            CreateScraperService(),
-            Substitute.For<IRecipeRepository>(),
-            NullLogger<CrawlerActivities>.Instance
-        );
+        var activities = new CrawlerActivities(client, CreateScraperService(), Substitute.For<IRecipeRepository>(), Substitute.For<IUnitOfWork>(), NullLogger<CrawlerActivities>.Instance);
 
         using var worker = new TemporalWorker(
             env.Client,
@@ -302,14 +283,9 @@ public class CrawlerWorkflowTests
                 Arg.Any<string>(),
                 Arg.Any<CancellationToken>()
             )
-            .Returns(Guid.NewGuid());
+            .Returns(new Domain.Recipes.RecipeId(Guid.NewGuid()));
 
-        var activities = new CrawlerActivities(
-            client,
-            CreateScraperService(),
-            repository,
-            NullLogger<CrawlerActivities>.Instance
-        );
+        var activities = new CrawlerActivities(client, CreateScraperService(), repository, Substitute.For<IUnitOfWork>(), NullLogger<CrawlerActivities>.Instance);
 
         using var worker = new TemporalWorker(
             env.Client,
@@ -365,14 +341,9 @@ public class CrawlerWorkflowTests
                 Arg.Any<string>(),
                 Arg.Any<CancellationToken>()
             )
-            .Returns(Guid.NewGuid());
+            .Returns(new Domain.Recipes.RecipeId(Guid.NewGuid()));
 
-        var activities = new CrawlerActivities(
-            client,
-            CreateScraperService(),
-            repository,
-            NullLogger<CrawlerActivities>.Instance
-        );
+        var activities = new CrawlerActivities(client, CreateScraperService(), repository, Substitute.For<IUnitOfWork>(), NullLogger<CrawlerActivities>.Instance);
 
         using var worker = new TemporalWorker(
             env.Client,
@@ -410,12 +381,7 @@ public class CrawlerWorkflowTests
                 )
             );
 
-        var activities = new CrawlerActivities(
-            client,
-            CreateScraperService(),
-            Substitute.For<IRecipeRepository>(),
-            NullLogger<CrawlerActivities>.Instance
-        );
+        var activities = new CrawlerActivities(client, CreateScraperService(), Substitute.For<IRecipeRepository>(), Substitute.For<IUnitOfWork>(), NullLogger<CrawlerActivities>.Instance);
 
         using var worker = new TemporalWorker(
             env.Client,
@@ -467,12 +433,7 @@ public class CrawlerWorkflowTests
                 )
             );
 
-        var activities = new CrawlerActivities(
-            client,
-            CreateScraperService(),
-            Substitute.For<IRecipeRepository>(),
-            NullLogger<CrawlerActivities>.Instance
-        );
+        var activities = new CrawlerActivities(client, CreateScraperService(), Substitute.For<IRecipeRepository>(), Substitute.For<IUnitOfWork>(), NullLogger<CrawlerActivities>.Instance);
 
         using var worker = new TemporalWorker(
             env.Client,
@@ -513,12 +474,7 @@ public class CrawlerWorkflowTests
                 )
             );
 
-        var activities = new CrawlerActivities(
-            client,
-            CreateScraperService(),
-            Substitute.For<IRecipeRepository>(),
-            NullLogger<CrawlerActivities>.Instance
-        );
+        var activities = new CrawlerActivities(client, CreateScraperService(), Substitute.For<IRecipeRepository>(), Substitute.For<IUnitOfWork>(), NullLogger<CrawlerActivities>.Instance);
 
         using var worker = new TemporalWorker(
             env.Client,
@@ -568,12 +524,7 @@ public class CrawlerWorkflowTests
                 )
             );
 
-        var activities = new CrawlerActivities(
-            client,
-            CreateScraperService(),
-            Substitute.For<IRecipeRepository>(),
-            NullLogger<CrawlerActivities>.Instance
-        );
+        var activities = new CrawlerActivities(client, CreateScraperService(), Substitute.For<IRecipeRepository>(), Substitute.For<IUnitOfWork>(), NullLogger<CrawlerActivities>.Instance);
 
         using var worker = new TemporalWorker(
             env.Client,
@@ -609,9 +560,9 @@ public class CrawlerWorkflowTests
             new JsonLdRecipeExtractor(NullLogger<JsonLdRecipeExtractor>.Instance)
         );
 
-    private static EmbeddingActivities CreateEmbeddingActivities(Exception? exception = null)
+    private static RecipeEmbeddingActivities CreateEmbeddingActivities(Exception? exception = null)
     {
-        var embeddingService = Substitute.For<IEmbeddingService>();
+        var embeddingService = Substitute.For<IRecipeEmbeddingService>();
         if (exception is null)
         {
             embeddingService
@@ -635,6 +586,6 @@ public class CrawlerWorkflowTests
                 .ReturnsForAnyArgs((Func<NSubstitute.Core.CallInfo, Task>)(_ => throw exception));
         }
 
-        return new EmbeddingActivities(embeddingService, NullLogger<EmbeddingActivities>.Instance);
+        return new RecipeEmbeddingActivities(embeddingService, NullLogger<RecipeEmbeddingActivities>.Instance);
     }
 }

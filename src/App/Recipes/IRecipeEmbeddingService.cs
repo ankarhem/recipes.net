@@ -1,14 +1,14 @@
 
 using Domain.Recipes;
 
-namespace App.Embedding;
+namespace App.Recipes;
 
-public interface IEmbeddingService
+public interface IRecipeEmbeddingService
 {
     Task EnsureRecipeEmbeddingAsync(
         Guid recipeId,
         Recipe recipe,
-        EmbeddingModel model,
+        RecipeEmbeddingModel model,
         CancellationToken cancellationToken = default
     );
 }

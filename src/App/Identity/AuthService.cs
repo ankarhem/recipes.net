@@ -43,7 +43,7 @@ public sealed class AuthService(
         user.IssueEmailVerificationToken(TokenHash.From(hashedToken), expiresAt, clock);
 
         await users.AddAsync(user, cancellationToken);
-        await users.SaveChangesAsync(cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
 
         await emailWorkflowStarter.StartVerificationWorkflowAsync(
             user.Id.Value,
@@ -85,7 +85,7 @@ public sealed class AuthService(
             var (plainToken, hashedToken) = secureTokenGenerator.Generate();
             var expiresAt = clock.UtcNow.AddMinutes(TwoFactorChallengeMinutes);
             user.IssueTwoFactorChallenge(TokenHash.From(hashedToken), expiresAt, clock);
-            await users.SaveChangesAsync(cancellationToken);
+            await unitOfWork.SaveChangesAsync(cancellationToken);
             return new AuthResult.TwoFactorRequired(user.Id.Value, plainToken, ["totp"]);
         }
 
@@ -151,7 +151,7 @@ public sealed class AuthService(
 
         try
         {
-            await users.SaveChangesAsync(cancellationToken);
+            await unitOfWork.SaveChangesAsync(cancellationToken);
         }
         catch (ConcurrencyConflictException)
         {
@@ -194,7 +194,7 @@ public sealed class AuthService(
 
         try
         {
-            await userSessions.SaveChangesAsync(cancellationToken);
+            await unitOfWork.SaveChangesAsync(cancellationToken);
         }
         catch (ConcurrencyConflictException)
         {
@@ -256,7 +256,7 @@ public sealed class AuthService(
 
         try
         {
-            await users.SaveChangesAsync(cancellationToken);
+            await unitOfWork.SaveChangesAsync(cancellationToken);
         }
         catch (ConcurrencyConflictException)
         {
@@ -286,7 +286,7 @@ public sealed class AuthService(
         var (plainToken, hashedToken) = secureTokenGenerator.Generate();
         var expiresAt = clock.UtcNow.AddHours(EmailVerificationHours);
         user.IssueEmailVerificationToken(TokenHash.From(hashedToken), expiresAt, clock);
-        await users.SaveChangesAsync(cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
 
         await emailWorkflowStarter.StartVerificationWorkflowAsync(
             user.Id.Value,
@@ -314,7 +314,7 @@ public sealed class AuthService(
         var (plainToken, hashedToken) = secureTokenGenerator.Generate();
         var expiresAt = clock.UtcNow.AddMinutes(PasswordResetMinutes);
         user.IssuePasswordResetToken(TokenHash.From(hashedToken), expiresAt, clock);
-        await users.SaveChangesAsync(cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
 
         await emailWorkflowStarter.StartPasswordResetWorkflowAsync(
             user.Id.Value,
@@ -361,7 +361,7 @@ public sealed class AuthService(
 
         try
         {
-            await users.SaveChangesAsync(cancellationToken);
+            await unitOfWork.SaveChangesAsync(cancellationToken);
         }
         catch (ConcurrencyConflictException)
         {
@@ -382,7 +382,7 @@ public sealed class AuthService(
         var expiresAt = clock.UtcNow.AddDays(RefreshTokenDays);
         var session = UserSession.Issue(userId, TokenHash.From(hashedToken), expiresAt, clock);
         await userSessions.AddAsync(session, cancellationToken);
-        await userSessions.SaveChangesAsync(cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
         return plainToken;
     }
 

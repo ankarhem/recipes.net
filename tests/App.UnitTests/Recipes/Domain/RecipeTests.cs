@@ -24,7 +24,7 @@ public class RecipeTests
             4
         );
 
-        recipe.Id.Should().NotBeEmpty();
+        recipe.Id.Value.Should().NotBeEmpty();
         recipe.Name.Should().Be("Tomato Soup");
         recipe.Description.Should().Be("A simple tomato soup");
         recipe.ImageUrls.Should().Equal("https://example.com/images/soup.jpg");
@@ -96,7 +96,7 @@ public class RecipeTests
 
         recipe.Name.Should().BeNull();
         recipe.Description.Should().BeNull();
-        recipe.Id.Should().NotBeEmpty();
+        recipe.Id.Value.Should().NotBeEmpty();
     }
 
     [Fact]

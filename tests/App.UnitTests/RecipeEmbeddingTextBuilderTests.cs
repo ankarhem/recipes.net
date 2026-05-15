@@ -13,7 +13,7 @@ public class RecipeEmbeddingTextBuilderTests
     {
         var recipe = new Recipe
         {
-            Id = Guid.NewGuid(),
+            Id = RecipeId.New(),
             Name = "Tomato Soup",
             Description = "A simple tomato soup",
             ImageUrls = Array.Empty<string>(),
@@ -134,7 +134,7 @@ public class RecipeEmbeddingTextBuilderTests
     {
         var recipe = new Recipe
         {
-            Id = Guid.NewGuid(),
+            Id = RecipeId.New(),
             Name = "Tomato Soup",
             Description = "A simple tomato soup",
             ImageUrls = Array.Empty<string>(),
@@ -168,7 +168,7 @@ public class RecipeEmbeddingTextBuilderTests
     private static Recipe MinimalRecipe() =>
         new()
         {
-            Id = Guid.NewGuid(),
+            Id = RecipeId.New(),
             ImageUrls = Array.Empty<string>(),
             SuitableForDiets = [],
             Ingredients = Array.Empty<RecipeIngredient>(),

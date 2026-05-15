@@ -1,7 +1,9 @@
-namespace App.Identity;
+namespace App;
 
 public interface IUnitOfWork
 {
+    Task SaveChangesAsync(CancellationToken cancellationToken = default);
+
     Task<IUnitOfWorkScope> BeginAsync(CancellationToken cancellationToken = default);
 }
 

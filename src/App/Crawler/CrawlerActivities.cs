@@ -11,6 +11,7 @@ public sealed class CrawlerActivities(
     ICrawlerClient client,
     IScraperService scraper,
     IRecipeRepository repository,
+    IUnitOfWork unitOfWork,
     ILogger<CrawlerActivities> logger
 )
 {
@@ -73,12 +74,13 @@ public sealed class CrawlerActivities(
     {
         var ct = ActivityExecutionContext.Current.CancellationToken;
         var id = await repository.SaveImportedAsync(recipe, sourceUrl, rawSchemaJson, ct);
+        await unitOfWork.SaveChangesAsync(ct);
         logger.LogInformation(
             "Saved recipe {Name} from {Url} (Id: {Id})",
             recipe.Name,
             sourceUrl,
             id
         );
-        return id;
+        return id.Value;
     }
 }

@@ -10,7 +10,7 @@ public class RecipeServiceTests
 {
     private static readonly Recipe SampleRecipe = new()
     {
-        Id = Guid.NewGuid(),
+        Id = RecipeId.New(),
         Name = "Pasta Carbonara",
         Description = "A classic Italian dish",
         ImageUrls = Array.Empty<string>(),

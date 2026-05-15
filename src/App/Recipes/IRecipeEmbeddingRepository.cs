@@ -1,4 +1,4 @@
-namespace App.Embedding;
+namespace App.Recipes;
 
 public interface IRecipeEmbeddingRepository
 {

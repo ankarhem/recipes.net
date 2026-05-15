@@ -10,7 +10,7 @@ namespace Infrastructure.Recipes;
 public sealed class RecipeRepository(RecipesDbContext db, IClock clock) : IRecipeRepository
 {
     public async Task<Recipe?> GetByIdAsync(
-        Guid id,
+        RecipeId id,
         CancellationToken cancellationToken = default
     )
     {
@@ -18,17 +18,17 @@ public sealed class RecipeRepository(RecipesDbContext db, IClock clock) : IRecip
             .AsSplitQuery()
             .Include(r => r.IngredientEntities)
             .Include(r => r.InstructionEntities)
-            .SingleOrDefaultAsync(r => r.Id == id, cancellationToken);
+            .SingleOrDefaultAsync(r => r.Id == id.Value, cancellationToken);
 
         return entity?.ToDomain();
     }
 
-    public async Task<bool> ExistsAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<bool> ExistsAsync(RecipeId id, CancellationToken cancellationToken = default)
     {
-        return await db.Recipes.AnyAsync(r => r.Id == id, cancellationToken);
+        return await db.Recipes.AnyAsync(r => r.Id == id.Value, cancellationToken);
     }
 
-    public async Task<Guid> SaveImportedAsync(
+    public async Task<RecipeId> SaveImportedAsync(
         Recipe recipe,
         string sourceUrl,
         string rawSchemaJson,
@@ -42,14 +42,13 @@ public sealed class RecipeRepository(RecipesDbContext db, IClock clock) : IRecip
 
         if (existing is not null)
         {
-            return existing.Id;
+            return new RecipeId(existing.Id);
         }
 
         var entity = RecipeEntity.FromImport(recipe, sourceUrl, rawSchemaJson, clock.UtcNow);
         await db.Recipes.AddAsync(entity, cancellationToken);
-        await db.SaveChangesAsync(cancellationToken);
 
-        return entity.Id;
+        return new RecipeId(entity.Id);
     }
 
     public async Task<IReadOnlyList<Recipe>> SearchAsync(

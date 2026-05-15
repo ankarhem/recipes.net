@@ -105,10 +105,11 @@ public class EmailWorkflowTests
         users
             .GetByEmailVerificationTokenHashAsync(default!, default)
             .ReturnsForAnyArgs((Func<CallInfo, Task<DomainUser?>>)(_ => Task.FromResult<DomainUser?>(user)));
-        users
+        var unitOfWork = Substitute.For<IUnitOfWork>();
+        unitOfWork
             .SaveChangesAsync(default)
             .ReturnsForAnyArgs((Func<CallInfo, Task>)(_ => Task.CompletedTask));
-        var cleanupActivities = new TokenCleanupActivities(users, new TestClock());
+        var cleanupActivities = new TokenCleanupActivities(users, unitOfWork, new TestClock());
 
         using var worker = new TemporalWorker(
             env.Client,
@@ -127,7 +128,7 @@ public class EmailWorkflowTests
         });
 
         user.EmailVerificationTokens.Should().BeEmpty();
-        await users.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -218,10 +219,11 @@ public class EmailWorkflowTests
         users
             .GetByPasswordResetTokenHashAsync(default!, default)
             .ReturnsForAnyArgs((Func<CallInfo, Task<DomainUser?>>)(_ => Task.FromResult<DomainUser?>(user)));
-        users
+        var unitOfWork = Substitute.For<IUnitOfWork>();
+        unitOfWork
             .SaveChangesAsync(default)
             .ReturnsForAnyArgs((Func<CallInfo, Task>)(_ => Task.CompletedTask));
-        var cleanupActivities = new TokenCleanupActivities(users, new TestClock());
+        var cleanupActivities = new TokenCleanupActivities(users, unitOfWork, new TestClock());
 
         using var worker = new TemporalWorker(
             env.Client,
@@ -240,7 +242,7 @@ public class EmailWorkflowTests
         });
 
         user.PasswordResetTokens.Should().BeEmpty();
-        await users.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     private static IEmailService CreateEmailService()
@@ -268,7 +270,7 @@ public class EmailWorkflowTests
             .ReturnsForAnyArgs(
                 (Func<CallInfo, Task<DomainUser?>>)(_ => Task.FromResult<DomainUser?>(null))
             );
-        return new TokenCleanupActivities(users, new TestClock());
+        return new TokenCleanupActivities(users, Substitute.For<IUnitOfWork>(), new TestClock());
     }
 
     private sealed class TestClock : IClock

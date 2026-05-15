@@ -1,4 +1,3 @@
-using App.Embedding;
 using App.Recipes;
 using Microsoft.Extensions.Logging;
 using Temporalio.Exceptions;
@@ -173,7 +172,7 @@ public class CrawlerWorkflow
             );
 
             await Workflow.ExecuteActivityAsync(
-                (EmbeddingActivities a) =>
+                (RecipeEmbeddingActivities a) =>
                     a.EnsureRecipeEmbeddingAsync(recipeId, page.Recipe, command.EmbeddingModel),
                 new()
                 {

@@ -1,4 +1,4 @@
-using App.Embedding;
+using App.Recipes;
 
 namespace App.Crawler;
 
@@ -8,7 +8,7 @@ public sealed class StartCrawlJobCommand
 
     public int MaxPages { get; init; } = 500;
 
-    public EmbeddingModel EmbeddingModel { get; init; } = EmbeddingModel.TextEmbedding3Small;
+    public RecipeEmbeddingModel EmbeddingModel { get; init; } = RecipeEmbeddingModel.TextEmbedding3Small;
 
     public IReadOnlyList<Uri> Queue { get; init; } = [];
 

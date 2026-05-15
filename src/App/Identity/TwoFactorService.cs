@@ -37,7 +37,7 @@ public sealed class TwoFactorService(
         var protectedSecret = totpSecretProtector.Protect(secret);
 
         user.StartTwoFactorSetup(EncryptedTotpSecret.From(protectedSecret), clock);
-        await users.SaveChangesAsync();
+        await unitOfWork.SaveChangesAsync();
 
         return new TwoFactorResult.SetupPending(base32, uri, Convert.ToBase64String(qr));
     }
@@ -75,7 +75,7 @@ public sealed class TwoFactorService(
 
         try
         {
-            await users.SaveChangesAsync();
+            await unitOfWork.SaveChangesAsync();
         }
         catch (ConcurrencyConflictException)
         {
@@ -108,7 +108,7 @@ public sealed class TwoFactorService(
 
         try
         {
-            await users.SaveChangesAsync();
+            await unitOfWork.SaveChangesAsync();
         }
         catch (ConcurrencyConflictException)
         {
@@ -143,7 +143,7 @@ public sealed class TwoFactorService(
 
         try
         {
-            await users.SaveChangesAsync();
+            await unitOfWork.SaveChangesAsync();
         }
         catch (ConcurrencyConflictException)
         {

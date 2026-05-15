@@ -1,16 +1,16 @@
-namespace App.Embedding;
+namespace App.Recipes;
 
-public enum EmbeddingModel
+public enum RecipeEmbeddingModel
 {
     TextEmbedding3Small,
 }
 
-public static class EmbeddingModelExtensions
+public static class RecipeEmbeddingModelExtensions
 {
-    public static int Dimensions(this EmbeddingModel model) =>
+    public static int Dimensions(this RecipeEmbeddingModel model) =>
         model switch
         {
-            EmbeddingModel.TextEmbedding3Small => 1536,
+            RecipeEmbeddingModel.TextEmbedding3Small => 1536,
             _ => throw new ArgumentOutOfRangeException(
                 nameof(model),
                 model,
@@ -18,10 +18,10 @@ public static class EmbeddingModelExtensions
             ),
         };
 
-    public static string OpenAiModelId(this EmbeddingModel model) =>
+    public static string OpenAiModelId(this RecipeEmbeddingModel model) =>
         model switch
         {
-            EmbeddingModel.TextEmbedding3Small => "text-embedding-3-small",
+            RecipeEmbeddingModel.TextEmbedding3Small => "text-embedding-3-small",
             _ => throw new ArgumentOutOfRangeException(
                 nameof(model),
                 model,

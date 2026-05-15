@@ -22,7 +22,7 @@ public class TwoFactorServiceTests
         var result = await ctx.Sut.SetupAsync(UserId.New());
 
         result.Should().BeOfType<TwoFactorResult.UserNotFound>();
-        await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.UnitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
     }
 
     [Fact]
@@ -36,7 +36,7 @@ public class TwoFactorServiceTests
 
         result.Should().BeOfType<TwoFactorResult.AlreadyEnabled>();
         ctx.TotpService.DidNotReceiveWithAnyArgs().GenerateSecret();
-        await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.UnitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
     }
 
     [Fact]
@@ -62,7 +62,7 @@ public class TwoFactorServiceTests
         user.Totp.Should().NotBeNull();
         user.Totp!.EncryptedSecret.Value.Should().Be("protected-secret");
         user.Totp.IsVerified.Should().BeFalse();
-        await ctx.UserRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await ctx.UnitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -76,7 +76,7 @@ public class TwoFactorServiceTests
 
         result.Should().BeOfType<TwoFactorResult.AlreadyEnabled>();
         ctx.TotpService.DidNotReceiveWithAnyArgs().Verify(default!, default!);
-        await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.UnitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
     }
 
     [Fact]
@@ -89,7 +89,7 @@ public class TwoFactorServiceTests
         var result = await ctx.Sut.ConfirmAsync(user.Id, "123456");
 
         result.Should().BeOfType<TwoFactorResult.NotEnabled>();
-        await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.UnitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
     }
 
     [Fact]
@@ -105,7 +105,7 @@ public class TwoFactorServiceTests
 
         result.Should().BeOfType<TwoFactorResult.InvalidCode>();
         user.HasTwoFactorEnabled.Should().BeFalse();
-        await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.UnitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
     }
 
     [Fact]
@@ -130,7 +130,7 @@ public class TwoFactorServiceTests
             .Select(c => c.CodeHash.Value)
             .Should()
             .BeEquivalentTo(recoveryCodes.Select(code => $"hashed-{code}"));
-        await ctx.UserRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await ctx.UnitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -143,7 +143,7 @@ public class TwoFactorServiceTests
         var result = await ctx.Sut.DisableAsync(user.Id, "123456");
 
         result.Should().BeOfType<TwoFactorResult.NotEnabled>();
-        await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.UnitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
     }
 
     [Fact]
@@ -159,7 +159,7 @@ public class TwoFactorServiceTests
 
         result.Should().BeOfType<TwoFactorResult.InvalidCode>();
         user.HasTwoFactorEnabled.Should().BeTrue();
-        await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.UnitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
         await ctx.UnitOfWorkScope.DidNotReceiveWithAnyArgs().CommitAsync(default);
     }
 
@@ -178,7 +178,7 @@ public class TwoFactorServiceTests
         user.HasTwoFactorEnabled.Should().BeFalse();
         user.Totp.Should().BeNull();
         user.RecoveryCodes.Should().BeEmpty();
-        await ctx.UserRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await ctx.UnitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
         await ctx.UnitOfWorkScope.Received(1).CommitAsync(Arg.Any<CancellationToken>());
     }
 
@@ -195,7 +195,7 @@ public class TwoFactorServiceTests
 
         result.Should().BeOfType<TwoFactorResult.InvalidCode>();
         user.RecoveryCodes.Should().HaveCount(2);
-        await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.UnitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
     }
 
     [Fact]
@@ -220,7 +220,7 @@ public class TwoFactorServiceTests
             .Select(c => c.CodeHash.Value)
             .Should()
             .BeEquivalentTo(recoveryCodes.Select(code => $"hashed-{code}"));
-        await ctx.UserRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await ctx.UnitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     private static SutContext CreateSut(FakeClock? clock = null)
@@ -240,15 +240,12 @@ public class TwoFactorServiceTests
             .ReturnsForAnyArgs(
                 (Func<CallInfo, Task<User?>>)(_ => Task.FromResult<User?>(null))
             );
-        userRepository
-            .SaveChangesAsync(default)
-            .ReturnsForAnyArgs((Func<CallInfo, Task>)(_ => Task.CompletedTask));
-
         unitOfWork
             .BeginAsync(default)
             .ReturnsForAnyArgs(
                 (Func<CallInfo, Task<IUnitOfWorkScope>>)(_ => Task.FromResult(unitOfWorkScope))
             );
+        unitOfWork.SaveChangesAsync(default).ReturnsForAnyArgs(Task.CompletedTask);
 
         totpService
             .Verify(default!, default!)
@@ -273,6 +270,7 @@ public class TwoFactorServiceTests
         return new SutContext(
             sut,
             userRepository,
+            unitOfWork,
             unitOfWorkScope,
             totpService,
             totpSecretProtector,
@@ -324,6 +322,7 @@ public class TwoFactorServiceTests
     private sealed record SutContext(
         TwoFactorService Sut,
         IUserRepository UserRepository,
+        IUnitOfWork UnitOfWork,
         IUnitOfWorkScope UnitOfWorkScope,
         ITotpService TotpService,
         ITotpSecretProtector TotpSecretProtector,

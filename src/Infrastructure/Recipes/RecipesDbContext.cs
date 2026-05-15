@@ -1,6 +1,5 @@
 using Domain.Identity;
 using Domain.Recipes;
-using Infrastructure.Embedding;
 using Infrastructure.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
@@ -17,7 +16,8 @@ public sealed class RecipesDbContext(DbContextOptions<RecipesDbContext> options)
     public DbSet<RecipeInstructionEntity> RecipeInstructions => Set<RecipeInstructionEntity>();
     public DbSet<RecipeEmbeddingEntity> RecipeEmbeddings => Set<RecipeEmbeddingEntity>();
     public DbSet<User> Users => Set<User>();
-    public DbSet<RecipeFavoriteEntity> RecipeFavorites => Set<RecipeFavoriteEntity>();
+    public DbSet<RecipeCollectionEntity> RecipeCollections => Set<RecipeCollectionEntity>();
+    public DbSet<RecipeCollectionItemEntity> RecipeCollectionItems => Set<RecipeCollectionItemEntity>();
     public DbSet<UserSession> UserSessions => Set<UserSession>();
     public DbSet<EmailVerificationToken> EmailVerificationTokens => Set<EmailVerificationToken>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
@@ -286,12 +286,40 @@ public sealed class RecipesDbContext(DbContextOptions<RecipesDbContext> options)
                 .SetPropertyAccessMode(PropertyAccessMode.Field);
         });
 
-        modelBuilder.Entity<RecipeFavoriteEntity>(entity =>
+        modelBuilder.Entity<RecipeCollectionEntity>(entity =>
         {
-            entity.HasKey(e => new { e.UserId, e.RecipeId });
-            entity.Property(e => e.UserId).IsRequired();
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.OwnerUserId).IsRequired();
+            entity.Property(e => e.Name).HasMaxLength(200).IsRequired();
+            entity.Property(e => e.Kind).HasConversion<string>().HasMaxLength(50).IsRequired();
+            entity
+                .Property(e => e.Visibility)
+                .HasConversion<string>()
+                .HasMaxLength(50)
+                .IsRequired();
             entity.Property(e => e.CreatedAt).IsRequired();
+            entity.Property(e => e.UpdatedAt).IsRequired();
+            entity.HasIndex(e => e.OwnerUserId);
+            entity
+                .HasIndex(e => new { e.OwnerUserId, e.Kind })
+                .IsUnique()
+                .HasFilter("\"Kind\" = 'Favorites'");
+            entity
+                .HasMany(e => e.Items)
+                .WithOne(i => i.Collection)
+                .HasForeignKey(i => i.CollectionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<RecipeCollectionItemEntity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.CollectionId).IsRequired();
+            entity.Property(e => e.RecipeId).IsRequired();
+            entity.Property(e => e.AddedAt).IsRequired();
+            entity.Property(e => e.Position).IsRequired();
             entity.HasIndex(e => e.RecipeId);
+            entity.HasIndex(e => new { e.CollectionId, e.RecipeId }).IsUnique();
             entity.HasOne(e => e.Recipe).WithMany().HasForeignKey(e => e.RecipeId);
         });
     }

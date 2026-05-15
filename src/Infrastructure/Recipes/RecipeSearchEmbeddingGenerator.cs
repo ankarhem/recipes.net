@@ -1,7 +1,7 @@
 using App.Recipes;
 using Microsoft.Extensions.AI;
 
-namespace Infrastructure.Embedding;
+namespace Infrastructure.Recipes;
 
 public sealed class RecipeSearchEmbeddingGenerator(
     IEmbeddingGenerator<string, Embedding<float>> embeddingGenerator

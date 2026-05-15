@@ -1,4 +1,3 @@
-using App;
 using App.Identity;
 using Domain;
 using Domain.Identity;
@@ -46,18 +45,4 @@ public sealed class UserSessionRepository(RecipesDbContext db, IClock clock) : I
             );
     }
 
-    public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            await db.SaveChangesAsync(cancellationToken);
-        }
-        catch (DbUpdateConcurrencyException ex)
-        {
-            throw new ConcurrencyConflictException(
-                "Concurrent modification detected on user session.",
-                ex
-            );
-        }
-    }
 }

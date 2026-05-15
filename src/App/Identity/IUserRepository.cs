@@ -23,6 +23,4 @@ public interface IUserRepository
     );
 
     Task AddAsync(User user, CancellationToken cancellationToken = default);
-
-    Task SaveChangesAsync(CancellationToken cancellationToken = default);
 }

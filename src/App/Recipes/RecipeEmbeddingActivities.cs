@@ -3,18 +3,18 @@ using Microsoft.Extensions.Logging;
 using Temporalio.Activities;
 using Temporalio.Exceptions;
 
-namespace App.Embedding;
+namespace App.Recipes;
 
-public sealed class EmbeddingActivities(
-    IEmbeddingService embeddingService,
-    ILogger<EmbeddingActivities> logger
+public sealed class RecipeEmbeddingActivities(
+    IRecipeEmbeddingService embeddingService,
+    ILogger<RecipeEmbeddingActivities> logger
 )
 {
     [Activity]
     public async Task EnsureRecipeEmbeddingAsync(
         Guid recipeId,
         Recipe recipe,
-        EmbeddingModel model
+        RecipeEmbeddingModel model
     )
     {
         var ct = ActivityExecutionContext.Current.CancellationToken;

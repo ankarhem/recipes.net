@@ -27,7 +27,7 @@ public sealed class RecipeEntity
     public Recipe ToDomain() =>
         new()
         {
-            Id = Id,
+            Id = new RecipeId(Id),
             Name = Name,
             Description = Description,
             ImageUrls = JsonSerializer.Deserialize<List<string>>(ImageUrlsJson) ?? [],
@@ -61,7 +61,7 @@ public sealed class RecipeEntity
     {
         return new RecipeEntity
         {
-            Id = recipe.Id,
+            Id = recipe.Id.Value,
             Url = sourceUrl,
             Name = recipe.Name ?? "Untitled",
             Description = recipe.Description,
@@ -80,7 +80,7 @@ public sealed class RecipeEntity
                 .Ingredients.Select(i => new RecipeIngredientEntity
                 {
                     Id = Guid.NewGuid(),
-                    RecipeId = recipe.Id,
+                    RecipeId = recipe.Id.Value,
                     Text = i.Text,
                 })
                 .ToList(),
@@ -88,7 +88,7 @@ public sealed class RecipeEntity
                 .Instructions.Select(i => new RecipeInstructionEntity
                 {
                     Id = Guid.NewGuid(),
-                    RecipeId = recipe.Id,
+                    RecipeId = recipe.Id.Value,
                     Position = i.Position,
                     Text = i.Text,
                     Name = i.Name,

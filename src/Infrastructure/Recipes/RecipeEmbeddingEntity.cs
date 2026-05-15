@@ -1,7 +1,6 @@
-using Infrastructure.Recipes;
 using Pgvector;
 
-namespace Infrastructure.Embedding;
+namespace Infrastructure.Recipes;
 
 public sealed class RecipeEmbeddingEntity
 {

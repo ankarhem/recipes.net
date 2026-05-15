@@ -1,8 +1,12 @@
+using Domain.Recipes;
+
 namespace App.Recipes;
 
 public sealed class RecipeFavoriteService(
-    IRecipeFavoriteRepository favoriteRepository,
-    IRecipeRepository recipeRepository
+    IRecipeCollectionRepository collectionRepository,
+    IRecipeRepository recipeRepository,
+    IUnitOfWork unitOfWork,
+    Domain.IClock clock
 ) : IRecipeFavoriteService
 {
     public async Task<ToggleRecipeFavoriteResult> ToggleFavoriteAsync(
@@ -11,21 +15,28 @@ public sealed class RecipeFavoriteService(
         CancellationToken cancellationToken = default
     )
     {
-        var exists = await recipeRepository.ExistsAsync(recipeId, cancellationToken);
+        var typedRecipeId = new RecipeId(recipeId);
+        var exists = await recipeRepository.ExistsAsync(typedRecipeId, cancellationToken);
         if (!exists)
         {
             return new ToggleRecipeFavoriteResult.RecipeNotFound();
         }
 
-        var existing = await favoriteRepository.FindAsync(userId, recipeId, cancellationToken);
-        if (existing is not null)
+        var ownerId = new RecipeCollectionOwnerId(userId);
+        var collection = await collectionRepository.GetDefaultFavoritesAsync(
+            ownerId,
+            cancellationToken
+        );
+        if (collection is null)
         {
-            await favoriteRepository.RemoveAsync(userId, recipeId, cancellationToken);
-            return new ToggleRecipeFavoriteResult.Success(false);
+            collection = RecipeCollection.CreateFavorites(ownerId, clock.UtcNow);
         }
 
-        await favoriteRepository.AddAsync(userId, recipeId, cancellationToken);
-        return new ToggleRecipeFavoriteResult.Success(true);
+        var isFavorite = collection.ToggleRecipe(typedRecipeId, clock.UtcNow);
+        await collectionRepository.SaveAsync(collection, cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return new ToggleRecipeFavoriteResult.Success(isFavorite);
     }
 
     public async Task<IReadOnlyList<Guid>> ListFavoriteRecipeIdsAsync(
@@ -33,6 +44,11 @@ public sealed class RecipeFavoriteService(
         CancellationToken cancellationToken = default
     )
     {
-        return await favoriteRepository.ListByUserIdAsync(userId, cancellationToken);
+        var collection = await collectionRepository.GetDefaultFavoritesAsync(
+            new RecipeCollectionOwnerId(userId),
+            cancellationToken
+        );
+
+        return collection?.Items.Select(i => i.RecipeId.Value).ToList() ?? [];
     }
 }

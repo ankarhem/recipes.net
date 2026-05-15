@@ -17,6 +17,4 @@ public interface IUserSessionRepository
     Task AddAsync(UserSession session, CancellationToken cancellationToken = default);
 
     Task RevokeAllForUserAsync(UserId userId, CancellationToken cancellationToken = default);
-
-    Task SaveChangesAsync(CancellationToken cancellationToken = default);
 }

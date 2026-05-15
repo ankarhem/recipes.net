@@ -1,6 +1,8 @@
 using AwesomeAssertions;
 using Domain.Recipes;
 using Infrastructure.Recipes;
+using Microsoft.EntityFrameworkCore;
+using Pgvector.EntityFrameworkCore;
 using Xunit;
 
 namespace App.Tests;
@@ -58,7 +60,7 @@ public class RecipeEntityTests
 
         var recipe = entity.ToDomain();
 
-        recipe.Id.Should().Be(entity.Id);
+        recipe.Id.Should().Be(new RecipeId(entity.Id));
         recipe.Name.Should().Be("Test Recipe");
         recipe.Description.Should().Be("A test description");
         recipe.ImageUrls.Should().Equal("https://example.com/img.jpg");
@@ -77,5 +79,129 @@ public class RecipeEntityTests
         recipe.Instructions[1].Position.Should().Be(2);
         recipe.Instructions[1].Text.Should().Be("Bake");
         recipe.Instructions[1].Name.Should().Be("Oven");
+    }
+
+    [Fact]
+    public void UpdateFromDomain_DiffsCollectionItemsWithoutRecreatingExistingItems()
+    {
+        var collectionId = Guid.NewGuid();
+        var ownerId = Guid.NewGuid();
+        var firstRecipeId = Guid.NewGuid();
+        var removedRecipeId = Guid.NewGuid();
+        var addedRecipeId = Guid.NewGuid();
+        var existingItemId = Guid.NewGuid();
+        var createdAt = DateTimeOffset.Parse("2026-05-15T12:00:00Z");
+        var updatedAt = createdAt.AddMinutes(5);
+        var entity = new RecipeCollectionEntity
+        {
+            Id = collectionId,
+            OwnerUserId = ownerId,
+            Name = "Favorites",
+            Kind = RecipeCollectionKind.Favorites,
+            Visibility = RecipeCollectionVisibility.Private,
+            CreatedAt = createdAt,
+            UpdatedAt = createdAt,
+            Items =
+            [
+                new RecipeCollectionItemEntity
+                {
+                    Id = existingItemId,
+                    CollectionId = collectionId,
+                    RecipeId = firstRecipeId,
+                    Position = 1,
+                    AddedAt = createdAt,
+                },
+                new RecipeCollectionItemEntity
+                {
+                    Id = Guid.NewGuid(),
+                    CollectionId = collectionId,
+                    RecipeId = removedRecipeId,
+                    Position = 2,
+                    AddedAt = createdAt,
+                },
+            ],
+        };
+        var collection = RecipeCollection.Rehydrate(
+            new RecipeCollectionId(collectionId),
+            new RecipeCollectionOwnerId(ownerId),
+            "Favorites",
+            RecipeCollectionKind.Favorites,
+            RecipeCollectionVisibility.Private,
+            createdAt,
+            updatedAt,
+            [
+                new RecipeCollectionItem
+                {
+                    RecipeId = new RecipeId(firstRecipeId),
+                    Position = 1,
+                    AddedAt = createdAt,
+                },
+                new RecipeCollectionItem
+                {
+                    RecipeId = new RecipeId(addedRecipeId),
+                    Position = 2,
+                    AddedAt = updatedAt,
+                },
+            ]
+        );
+
+        entity.UpdateFromDomain(collection);
+
+        entity.Items.Should().HaveCount(2);
+        entity.Items.Should().ContainSingle(i => i.Id == existingItemId && i.RecipeId == firstRecipeId);
+        entity.Items.Should().NotContain(i => i.RecipeId == removedRecipeId);
+        entity
+            .Items.Should()
+            .ContainSingle(i =>
+                i.RecipeId == addedRecipeId
+                && i.CollectionId == collectionId
+                && i.Position == 2
+                && i.AddedAt == updatedAt
+            );
+    }
+
+    [Fact]
+    public void RecipesDbContext_DoesNotEnforceUniqueCollectionItemPositions()
+    {
+        var options = new DbContextOptionsBuilder<RecipesDbContext>()
+            .UseNpgsql(
+                "Host=localhost;Database=recipes_test;Username=test;Password=test",
+                npgsql => npgsql.UseVector()
+            )
+            .Options;
+
+        using var db = new RecipesDbContext(options);
+
+        var collectionItemIndexes = db.Model.FindEntityType(typeof(RecipeCollectionItemEntity))!
+            .GetIndexes()
+            .Select(index => new
+            {
+                Properties = index.Properties.Select(property => property.Name).ToArray(),
+                index.IsUnique,
+            })
+            .ToList();
+
+        collectionItemIndexes.Should()
+            .ContainSingle(index =>
+                index.IsUnique
+                && index.Properties.SequenceEqual(
+                    new[]
+                    {
+                        nameof(RecipeCollectionItemEntity.CollectionId),
+                        nameof(RecipeCollectionItemEntity.RecipeId),
+                    }
+                )
+            );
+        collectionItemIndexes.Should()
+            .NotContain(index =>
+                index.IsUnique
+                && index.Properties.SequenceEqual(
+                    new[]
+                    {
+                        nameof(RecipeCollectionItemEntity.CollectionId),
+                        nameof(RecipeCollectionItemEntity.Position),
+                    }
+                )
+            );
     }
 }

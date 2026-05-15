@@ -14,7 +14,7 @@ public class RecipesControllerTests
 
     private static readonly Domain.Recipes.Recipe TestRecipe = new()
     {
-        Id = Guid.NewGuid(),
+        Id = Domain.Recipes.RecipeId.New(),
         Name = "Test Recipe",
         Description = "A test",
         ImageUrls = ["https://example.com/image.jpg"],
@@ -37,7 +37,7 @@ public class RecipesControllerTests
     public async Task Get_ExistingId_Returns200WithRecipe()
     {
         _service
-            .GetRecipeAsync(TestRecipe.Id, Arg.Any<CancellationToken>())
+            .GetRecipeAsync(TestRecipe.Id.Value, Arg.Any<CancellationToken>())
             .Returns(
                 (Func<NSubstitute.Core.CallInfo, Task<Domain.Recipes.Recipe?>>)(
                     _ => Task.FromResult<Domain.Recipes.Recipe?>(TestRecipe)
@@ -45,12 +45,12 @@ public class RecipesControllerTests
             );
         var controller = new RecipesController(_service);
 
-        var result = await controller.Get(TestRecipe.Id, CancellationToken.None);
+        var result = await controller.Get(TestRecipe.Id.Value, CancellationToken.None);
 
         var ok = result.Should().BeOfType<OkObjectResult>().Subject;
         ok.StatusCode.Should().Be(200);
         var response = ok.Value.Should().BeOfType<GetRecipeResponse>().Subject;
-        response.Id.Should().Be(TestRecipe.Id);
+        response.Id.Should().Be(TestRecipe.Id.Value);
         response.Name.Should().Be("Test Recipe");
         response.Description.Should().Be("A test");
         response.ImageUrls.Should().Equal("https://example.com/image.jpg");
@@ -93,7 +93,7 @@ public class RecipesControllerTests
     {
         var recipe = TestRecipe with { Name = null };
         _service
-            .GetRecipeAsync(recipe.Id, Arg.Any<CancellationToken>())
+            .GetRecipeAsync(recipe.Id.Value, Arg.Any<CancellationToken>())
             .Returns(
                 (Func<NSubstitute.Core.CallInfo, Task<Domain.Recipes.Recipe?>>)(
                     _ => Task.FromResult<Domain.Recipes.Recipe?>(recipe)
@@ -101,7 +101,7 @@ public class RecipesControllerTests
             );
         var controller = new RecipesController(_service);
 
-        var result = await controller.Get(recipe.Id, CancellationToken.None);
+        var result = await controller.Get(recipe.Id.Value, CancellationToken.None);
 
         var ok = result.Should().BeOfType<OkObjectResult>().Subject;
         var response = ok.Value.Should().BeOfType<GetRecipeResponse>().Subject;
@@ -112,7 +112,7 @@ public class RecipesControllerTests
     public async Task Get_ForwardsCancellationToken()
     {
         _service
-            .GetRecipeAsync(TestRecipe.Id, Arg.Any<CancellationToken>())
+            .GetRecipeAsync(TestRecipe.Id.Value, Arg.Any<CancellationToken>())
             .Returns(
                 (Func<NSubstitute.Core.CallInfo, Task<Domain.Recipes.Recipe?>>)(
                     _ => Task.FromResult<Domain.Recipes.Recipe?>(TestRecipe)
@@ -121,9 +121,9 @@ public class RecipesControllerTests
         var controller = new RecipesController(_service);
         using var cts = new CancellationTokenSource();
 
-        await controller.Get(TestRecipe.Id, cts.Token);
+        await controller.Get(TestRecipe.Id.Value, cts.Token);
 
-        await _service.Received(1).GetRecipeAsync(TestRecipe.Id, cts.Token);
+        await _service.Received(1).GetRecipeAsync(TestRecipe.Id.Value, cts.Token);
     }
 
     [Fact]
@@ -146,7 +146,7 @@ public class RecipesControllerTests
         var response = ok.Value.Should().BeOfType<SearchRecipesResponse>().Subject;
         response.Query.Should().Be("pasta");
         response.Results.Should().HaveCount(1);
-        response.Results[0].Id.Should().Be(TestRecipe.Id);
+        response.Results[0].Id.Should().Be(TestRecipe.Id.Value);
         response.Results[0].Name.Should().Be("Test Recipe");
     }
 

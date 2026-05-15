@@ -1,4 +1,3 @@
-using App.Embedding;
 using App.Recipes;
 using AwesomeAssertions;
 using Domain.Recipes;
@@ -9,11 +8,11 @@ using Xunit;
 
 namespace App.UnitTests;
 
-public class EmbeddingServiceTests
+public class RecipeEmbeddingServiceTests
 {
     private static readonly Recipe SampleRecipe = new()
     {
-        Id = Guid.NewGuid(),
+        Id = RecipeId.New(),
         Name = "Tomato Soup",
         Description = "A simple soup",
         ImageUrls = Array.Empty<string>(),
@@ -41,17 +40,19 @@ public class EmbeddingServiceTests
             .ExistsAsync(default!, default!, default!, default!, default)
             .ReturnsForAnyArgs(true);
 
-        var service = new EmbeddingService(
+        var unitOfWork = Substitute.For<IUnitOfWork>();
+        var service = new RecipeEmbeddingService(
             textBuilder,
             repository,
+            unitOfWork,
             generator,
-            NullLogger<EmbeddingService>.Instance
+            NullLogger<RecipeEmbeddingService>.Instance
         );
 
         await service.EnsureRecipeEmbeddingAsync(
             Guid.NewGuid(),
             SampleRecipe,
-            EmbeddingModel.TextEmbedding3Small
+            RecipeEmbeddingModel.TextEmbedding3Small
         );
 
         await generator.DidNotReceiveWithAnyArgs().GenerateAsync(default!, default!, default);
@@ -65,6 +66,7 @@ public class EmbeddingServiceTests
                 default!,
                 default
             );
+        await unitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
     }
 
     [Fact]
@@ -94,11 +96,14 @@ public class EmbeddingServiceTests
                 )
             );
 
-        var service = new EmbeddingService(
+        var unitOfWork = Substitute.For<IUnitOfWork>();
+        unitOfWork.SaveChangesAsync(default).ReturnsForAnyArgs(Task.CompletedTask);
+        var service = new RecipeEmbeddingService(
             textBuilder,
             repository,
+            unitOfWork,
             generator,
-            NullLogger<EmbeddingService>.Instance
+            NullLogger<RecipeEmbeddingService>.Instance
         );
 
         var recipeId = Guid.NewGuid();
@@ -106,7 +111,7 @@ public class EmbeddingServiceTests
         await service.EnsureRecipeEmbeddingAsync(
             recipeId,
             SampleRecipe,
-            EmbeddingModel.TextEmbedding3Small
+            RecipeEmbeddingModel.TextEmbedding3Small
         );
 
         await repository
@@ -119,6 +124,7 @@ public class EmbeddingServiceTests
                 Arg.Any<ReadOnlyMemory<float>>(),
                 Arg.Any<CancellationToken>()
             );
+        await unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -145,17 +151,20 @@ public class EmbeddingServiceTests
                 )
             );
 
-        var service = new EmbeddingService(
+        var unitOfWork = Substitute.For<IUnitOfWork>();
+        unitOfWork.SaveChangesAsync(default).ReturnsForAnyArgs(Task.CompletedTask);
+        var service = new RecipeEmbeddingService(
             textBuilder,
             repository,
+            unitOfWork,
             generator,
-            NullLogger<EmbeddingService>.Instance
+            NullLogger<RecipeEmbeddingService>.Instance
         );
 
         await service.EnsureRecipeEmbeddingAsync(
             Guid.NewGuid(),
             SampleRecipe,
-            EmbeddingModel.TextEmbedding3Small
+            RecipeEmbeddingModel.TextEmbedding3Small
         );
 
         await generator

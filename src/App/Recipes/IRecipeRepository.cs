@@ -5,11 +5,11 @@ namespace App.Recipes;
 
 public interface IRecipeRepository
 {
-    Task<Recipe?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<Recipe?> GetByIdAsync(RecipeId id, CancellationToken cancellationToken = default);
 
-    Task<bool> ExistsAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<bool> ExistsAsync(RecipeId id, CancellationToken cancellationToken = default);
 
-    Task<Guid> SaveImportedAsync(
+    Task<RecipeId> SaveImportedAsync(
         Recipe recipe,
         string sourceUrl,
         string rawSchemaJson,

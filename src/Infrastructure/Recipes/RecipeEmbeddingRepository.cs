@@ -1,16 +1,12 @@
-using App.Embedding;
+using App.Recipes;
 using Domain;
-using Infrastructure.Recipes;
 using Microsoft.EntityFrameworkCore;
-using Npgsql;
 using Pgvector;
 
-namespace Infrastructure.Embedding;
+namespace Infrastructure.Recipes;
 
 public sealed class RecipeEmbeddingRepository(RecipesDbContext db, IClock clock) : IRecipeEmbeddingRepository
 {
-    private static readonly string UniqueViolation = "23505";
-
     public Task<bool> ExistsAsync(
         Guid recipeId,
         string model,
@@ -64,17 +60,5 @@ public sealed class RecipeEmbeddingRepository(RecipesDbContext db, IClock clock)
         };
 
         db.RecipeEmbeddings.Add(entity);
-
-        try
-        {
-            await db.SaveChangesAsync(cancellationToken);
-        }
-        catch (DbUpdateException ex)
-            when (ex.InnerException is PostgresException { SqlState: var sqlState }
-                && sqlState == UniqueViolation
-            )
-        {
-            // Concurrent insert won the race — treat as success
-        }
     }
 }

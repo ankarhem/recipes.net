@@ -1,10 +1,9 @@
+using App;
 using App.Crawler;
-using App.Embedding;
 using App.Identity;
 using App.Recipes;
 using Domain.Recipes;
 using Infrastructure.Crawler;
-using Infrastructure.Embedding;
 using Infrastructure.Identity;
 using Infrastructure.Recipes;
 using Microsoft.AspNetCore.DataProtection;
@@ -290,7 +289,7 @@ builder.Services.AddScoped<IRecipeService, App.Recipes.RecipeService>();
 builder.Services.AddScoped<IRecipeSearchEmbeddingGenerator, RecipeSearchEmbeddingGenerator>();
 builder.Services.AddSingleton<IRecipeEmbeddingTextBuilder, RecipeEmbeddingTextBuilder>();
 builder.Services.AddScoped<IRecipeEmbeddingRepository, RecipeEmbeddingRepository>();
-builder.Services.AddScoped<IEmbeddingService, EmbeddingService>();
+builder.Services.AddScoped<IRecipeEmbeddingService, RecipeEmbeddingService>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IUserSessionRepository, UserSessionRepository>();
 builder.Services.AddScoped<IUnitOfWork, EfUnitOfWork>();
@@ -338,15 +337,15 @@ builder.Services.AddSingleton<JwtAccessTokenOptions>(sp =>
     };
 });
 builder.Services.AddScoped<IAccessTokenService, JwtAccessTokenService>();
-builder.Services.AddScoped<IRecipeFavoriteRepository, RecipeFavoriteRepository>();
+builder.Services.AddScoped<IRecipeCollectionRepository, RecipeCollectionRepository>();
 builder.Services.AddScoped<IRecipeFavoriteService, RecipeFavoriteService>();
 
 builder.Services.AddSingleton<IEmbeddingGenerator<string, Embedding<float>>>(sp =>
 {
     var settings = sp.GetRequiredService<AppSettings>();
     var client = new OpenAIClient(settings.OpenAi.ApiKey);
-    var embeddingClient = client.GetEmbeddingClient(EmbeddingModel.TextEmbedding3Small.OpenAiModelId());
-    return embeddingClient.AsIEmbeddingGenerator(EmbeddingModel.TextEmbedding3Small.Dimensions());
+    var embeddingClient = client.GetEmbeddingClient(RecipeEmbeddingModel.TextEmbedding3Small.OpenAiModelId());
+    return embeddingClient.AsIEmbeddingGenerator(RecipeEmbeddingModel.TextEmbedding3Small.Dimensions());
 });
 
 builder.Services.AddHttpClient<ICrawlerClient, CrawlerClient>();
@@ -361,7 +360,7 @@ builder.Services.AddSingleton<ICrawlerService>(sp => new CrawlerService(
 builder
     .Services.AddHostedTemporalWorker(appSettings.Temporal.TaskQueue)
     .AddTransientActivities<CrawlerActivities>()
-    .AddTransientActivities<EmbeddingActivities>()
+    .AddTransientActivities<RecipeEmbeddingActivities>()
     .AddTransientActivities<EmailActivities>()
     .AddTransientActivities<TokenCleanupActivities>()
     .AddWorkflow<CrawlerWorkflow>()

@@ -11,7 +11,7 @@ public sealed class RecipeService(
         Guid id,
         CancellationToken cancellationToken = default
     ) =>
-        recipeRepository.GetByIdAsync(id, cancellationToken);
+        recipeRepository.GetByIdAsync(new RecipeId(id), cancellationToken);
 
     public async Task<IReadOnlyList<Recipe>> SearchRecipesAsync(
         string query,

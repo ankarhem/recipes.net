@@ -1,11 +1,25 @@
+using App;
 using App.Identity;
 using Infrastructure.Recipes;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Infrastructure.Identity;
 
 public sealed class EfUnitOfWork(RecipesDbContext db) : IUnitOfWork
 {
+    public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            throw new ConcurrencyConflictException("Concurrent modification detected.", ex);
+        }
+    }
+
     public async Task<IUnitOfWorkScope> BeginAsync(CancellationToken cancellationToken = default)
     {
         var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
