@@ -1,0 +1,11 @@
+id: no-utc-now
+language: CSharp
+rule:
+  any:
+    - pattern: DateTime.UtcNow
+    - pattern: DateTime.Now
+    - pattern: DateTime.Today
+    - pattern: DateTimeOffset.UtcNow
+    - pattern: DateTimeOffset.Now
+message: Use IClock.UtcNow instead of static DateTime/DateTimeOffset time access. Inject IClock via constructor for testability.
+severity: error

@@ -1,0 +1,50 @@
+id: no-utc-now
+snapshots:
+  DateTime.Now:
+    labels:
+    - source: DateTime.Now
+      style: primary
+      start: 0
+      end: 12
+  DateTime.Today:
+    labels:
+    - source: DateTime.Today
+      style: primary
+      start: 0
+      end: 14
+  DateTime.UtcNow:
+    labels:
+    - source: DateTime.UtcNow
+      style: primary
+      start: 0
+      end: 15
+  DateTimeOffset.Now:
+    labels:
+    - source: DateTimeOffset.Now
+      style: primary
+      start: 0
+      end: 18
+  DateTimeOffset.UtcNow:
+    labels:
+    - source: DateTimeOffset.UtcNow
+      style: primary
+      start: 0
+      end: 21
+  DateTimeOffset.UtcNow.AddHours(24):
+    labels:
+    - source: DateTimeOffset.UtcNow
+      style: primary
+      start: 0
+      end: 21
+  var now = DateTime.UtcNow;:
+    labels:
+    - source: DateTime.UtcNow
+      style: primary
+      start: 10
+      end: 25
+  var now = DateTimeOffset.UtcNow;:
+    labels:
+    - source: DateTimeOffset.UtcNow
+      style: primary
+      start: 10
+      end: 31
