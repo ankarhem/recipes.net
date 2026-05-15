@@ -1,11 +1,12 @@
 using Infrastructure.Recipe;
+using Domain.Identity;
 using DomainRecipeFavorite = Domain.Recipe.RecipeFavorite;
 
 namespace Infrastructure.Recipe;
 
 public sealed class RecipeFavoriteEntity
 {
-    public required Guid UserId { get; set; }
+    public required UserId UserId { get; set; }
     public required Guid RecipeId { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public RecipeEntity Recipe { get; set; } = null!;
@@ -13,7 +14,7 @@ public sealed class RecipeFavoriteEntity
     public DomainRecipeFavorite ToDomain() =>
         new()
         {
-            UserId = UserId,
+            UserId = UserId.Value,
             RecipeId = RecipeId,
             CreatedAt = CreatedAt,
         };

@@ -73,3 +73,6 @@ Thumbs.db
 
 ## Environment
 .env
+
+## ASP.NET Core Data Protection
+.dataprotection-keys/

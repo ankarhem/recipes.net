@@ -97,3 +97,61 @@ public sealed record ResetPasswordRequest
     [MaxLength(72)]
     public required string NewPassword { get; init; }
 }
+
+public sealed record VerifyTotpRequest
+{
+    [Description("The two-factor challenge token.")]
+    [Required]
+    [MinLength(1)]
+    [MaxLength(512)]
+    public required string ChallengeToken { get; init; }
+
+    [Description("The TOTP or recovery code.")]
+    [Required]
+    [MinLength(6)]
+    [MaxLength(32)]
+    public required string Code { get; init; }
+}
+
+public sealed record TwoFactorRequiredResponse(
+    Guid UserId,
+    string ChallengeToken,
+    IReadOnlyList<string> AvailableMethods
+);
+
+public sealed record ConfirmTwoFactorRequest
+{
+    [Description("The six-digit TOTP code.")]
+    [Required]
+    [MinLength(6)]
+    [MaxLength(6)]
+    public required string Code { get; init; }
+}
+
+public sealed record DisableTwoFactorRequest
+{
+    [Description("The six-digit TOTP code.")]
+    [Required]
+    [MinLength(6)]
+    [MaxLength(6)]
+    public required string Code { get; init; }
+}
+
+public sealed record RegenerateRecoveryCodesRequest
+{
+    [Description("The six-digit TOTP code.")]
+    [Required]
+    [MinLength(6)]
+    [MaxLength(6)]
+    public required string Code { get; init; }
+}
+
+public sealed record TwoFactorSetupResponse(
+    string Base32Secret,
+    string OtpAuthUri,
+    string QrCodePngBase64
+);
+
+public sealed record TwoFactorEnabledResponse(IReadOnlyList<string> RecoveryCodes);
+
+public sealed record RecoveryCodesResponse(IReadOnlyList<string> RecoveryCodes);

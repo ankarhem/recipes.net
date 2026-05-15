@@ -6,6 +6,8 @@ using Infrastructure.Identity;
 using Infrastructure.Crawler;
 using Infrastructure.Embedding;
 using Infrastructure.Recipe;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.AspNetCore.RateLimiting;
@@ -108,6 +110,43 @@ builder.Services.AddRateLimiter(options =>
             );
         }
     );
+
+    options.AddPolicy(
+        "twofa",
+        context =>
+        {
+            var partitionKey = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            return RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey,
+                _ =>
+                    new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 5,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0,
+                    }
+            );
+        }
+    );
+});
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.ForwardLimit = 1;
+
+    var knownProxies = builder
+        .Configuration.GetSection("ForwardedHeaders:KnownProxies")
+        .Get<string[]>();
+    if (knownProxies is not null)
+    {
+        foreach (var proxyAddress in knownProxies)
+        {
+            if (System.Net.IPAddress.TryParse(proxyAddress, out var ip))
+            {
+                options.KnownProxies.Add(ip);
+            }
+        }
+    }
 });
 builder.Services.AddHealthChecks().AddCheck<TemporalHealthCheck>("temporal", tags: ["ready"]);
 
@@ -236,6 +275,15 @@ builder.Services.AddDbContext<RecipesDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Recipes"), o => o.UseVector())
 );
 
+var dataProtectionKeyPath =
+    builder.Configuration["DataProtection:KeyPath"]
+    ?? Path.Combine(builder.Environment.ContentRootPath, ".dataprotection-keys");
+
+builder
+    .Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeyPath))
+    .SetApplicationName("recipes");
+
 builder.Services.AddScoped<IRecipeRepository, RecipeRepository>();
 builder.Services.AddScoped<IRecipeService, App.Recipe.RecipeService>();
 builder.Services.AddSingleton<IRecipeEmbeddingTextBuilder, RecipeEmbeddingTextBuilder>();
@@ -245,6 +293,12 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IUserSessionRepository, UserSessionRepository>();
 builder.Services.AddScoped<IUnitOfWork, EfUnitOfWork>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.Configure<TotpOptions>(builder.Configuration.GetSection(TotpOptions.SectionName));
+builder.Services.AddSingleton<ITotpService, OtpNetTotpService>();
+builder.Services.AddSingleton<IQrCodeGenerator, QrCoderGenerator>();
+builder.Services.AddSingleton<IRecoveryCodeGenerator, RecoveryCodeGenerator>();
+builder.Services.AddScoped<ITotpSecretProtector, DataProtectionTotpSecretProtector>();
+builder.Services.AddScoped<ITwoFactorService, TwoFactorService>();
 builder.Services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
 builder.Services.AddSingleton<ISecureTokenGenerator, SecureTokenGenerator>();
 builder.Services.AddSingleton<Domain.IClock, Infrastructure.SystemClock>();
@@ -317,6 +371,20 @@ if (app.Environment.IsProduction())
 {
     using var scope = app.Services.CreateScope();
     await scope.ServiceProvider.GetRequiredService<RecipesDbContext>().Database.MigrateAsync();
+
+    var keyFiles = Directory.Exists(dataProtectionKeyPath)
+        ? Directory.GetFiles(dataProtectionKeyPath, "*.xml")
+        : Array.Empty<string>();
+    if (keyFiles.Length == 0)
+    {
+        var startupLogger = app.Services.GetRequiredService<ILogger<Program>>();
+        startupLogger.LogWarning(
+            "Data Protection key directory at '{KeyPath}' is empty or missing. "
+                + "TOTP secrets encrypted with prior keys will be undecryptable, locking out any 2FA-enabled users. "
+                + "Restore the key ring from backup or ensure persistent storage is mounted at this path.",
+            dataProtectionKeyPath
+        );
+    }
 }
 
 if (app.Environment.IsDevelopment())
@@ -328,6 +396,7 @@ if (app.Environment.IsDevelopment())
     );
 }
 
+app.UseForwardedHeaders();
 app.UseHttpLogging();
 app.UseExceptionHandler();
 app.UseStatusCodePages();

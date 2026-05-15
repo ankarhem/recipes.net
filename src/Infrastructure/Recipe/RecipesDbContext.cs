@@ -19,6 +19,9 @@ public sealed class RecipesDbContext(DbContextOptions<RecipesDbContext> options)
     public DbSet<UserSession> UserSessions => Set<UserSession>();
     public DbSet<EmailVerificationToken> EmailVerificationTokens => Set<EmailVerificationToken>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
+    public DbSet<TotpCredential> UserTotpCredentials => Set<TotpCredential>();
+    public DbSet<RecoveryCode> RecoveryCodes => Set<RecoveryCode>();
+    public DbSet<TwoFactorChallenge> TwoFactorChallenges => Set<TwoFactorChallenge>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -181,9 +184,89 @@ public sealed class RecipesDbContext(DbContextOptions<RecipesDbContext> options)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
+        modelBuilder.Entity<TotpCredential>(entity =>
+        {
+            entity.ToTable("UserTotpCredentials");
+            entity.HasKey(e => e.Id);
+            entity
+                .Property(e => e.UserId)
+                .HasConversion(v => v.Value, v => new UserId(v))
+                .IsRequired();
+            entity
+                .Property(e => e.EncryptedSecret)
+                .HasConversion(v => v.Value, v => EncryptedTotpSecret.From(v))
+                .IsRequired();
+            entity.Property(e => e.IsVerified).HasDefaultValue(false).IsRequired();
+            entity.Property(e => e.LastUsedStep).IsConcurrencyToken();
+            entity.Property(e => e.CreatedAt).IsRequired();
+            entity.Property(e => e.UpdatedAt).IsRequired();
+            entity.Property(e => e.VerifiedAt);
+            entity.HasIndex(e => e.UserId).IsUnique();
+            entity
+                .HasOne<User>()
+                .WithOne(u => u.Totp)
+                .HasForeignKey<TotpCredential>(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<RecoveryCode>(entity =>
+        {
+            entity.ToTable("RecoveryCodes");
+            entity.HasKey(e => e.Id);
+            entity
+                .Property(e => e.UserId)
+                .HasConversion(v => v.Value, v => new UserId(v))
+                .IsRequired();
+            entity
+                .Property(e => e.CodeHash)
+                .HasConversion(v => v.Value, v => RecoveryCodeHash.From(v))
+                .IsRequired();
+            entity.Property(e => e.CreatedAt).IsRequired();
+            entity.Property(e => e.ConsumedAt).IsConcurrencyToken();
+            entity.HasIndex(e => e.UserId);
+            entity
+                .HasOne<User>()
+                .WithMany(u => u.RecoveryCodes)
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            modelBuilder
+                .Entity<User>()
+                .Metadata.FindNavigation(nameof(User.RecoveryCodes))!
+                .SetPropertyAccessMode(PropertyAccessMode.Field);
+        });
+
+        modelBuilder.Entity<TwoFactorChallenge>(entity =>
+        {
+            entity.ToTable("TwoFactorChallenges");
+            entity.HasKey(e => e.Id);
+            entity
+                .Property(e => e.UserId)
+                .HasConversion(v => v.Value, v => new UserId(v))
+                .IsRequired();
+            entity
+                .Property(e => e.TokenHash)
+                .HasConversion(v => v.Value, v => TokenHash.From(v))
+                .IsRequired();
+            entity.Property(e => e.ExpiresAt).IsRequired();
+            entity.Property(e => e.CreatedAt).IsRequired();
+            entity.Property(e => e.ConsumedAt).IsConcurrencyToken();
+            entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => e.TokenHash).IsUnique();
+            entity
+                .HasOne<User>()
+                .WithMany(u => u.TwoFactorChallenges)
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            modelBuilder
+                .Entity<User>()
+                .Metadata.FindNavigation(nameof(User.TwoFactorChallenges))!
+                .SetPropertyAccessMode(PropertyAccessMode.Field);
+        });
+
         modelBuilder.Entity<RecipeFavoriteEntity>(entity =>
         {
             entity.HasKey(e => new { e.UserId, e.RecipeId });
+            entity.Property(e => e.UserId).HasConversion(v => v.Value, v => new UserId(v));
             entity.Property(e => e.CreatedAt).IsRequired();
             entity.HasIndex(e => e.RecipeId);
             entity

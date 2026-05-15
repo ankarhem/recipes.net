@@ -17,6 +17,11 @@ public interface IUserRepository
         CancellationToken cancellationToken = default
     );
 
+    Task<User?> GetByTwoFactorChallengeHashAsync(
+        TokenHash challengeHash,
+        CancellationToken cancellationToken = default
+    );
+
     Task AddAsync(User user, CancellationToken cancellationToken = default);
 
     Task SaveChangesAsync(CancellationToken cancellationToken = default);

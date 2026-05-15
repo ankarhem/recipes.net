@@ -10,10 +10,19 @@ public abstract record AuthResult
     ) : AuthResult;
 
     public sealed record RegistrationPending(Guid UserId, string Email) : AuthResult;
+    public sealed record TwoFactorRequired(
+        Guid UserId,
+        string ChallengeToken,
+        IReadOnlyList<string> AvailableMethods
+    ) : AuthResult;
+
     public sealed record InvalidCredentials : AuthResult;
     public sealed record EmailAlreadyRegistered : AuthResult;
     public sealed record InvalidRefreshToken : AuthResult;
     public sealed record EmailNotVerified : AuthResult;
+    public sealed record InvalidTwoFactorCode : AuthResult;
+    public sealed record InvalidChallengeToken : AuthResult;
+    public sealed record ChallengeTokenExpired : AuthResult;
     public sealed record InvalidVerificationToken : AuthResult;
     public sealed record VerificationTokenExpired : AuthResult;
     public sealed record InvalidResetToken : AuthResult;

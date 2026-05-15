@@ -8,18 +8,18 @@ namespace Infrastructure.Identity;
 public sealed class UserRepository(RecipesDbContext db) : IUserRepository
 {
     public Task<User?> GetByIdAsync(UserId id, CancellationToken cancellationToken = default) =>
-        QueryWithTokens().SingleOrDefaultAsync(u => u.Id == id, cancellationToken);
+        QueryWithAggregate().SingleOrDefaultAsync(u => u.Id == id, cancellationToken);
 
     public Task<User?> GetByEmailAsync(
         Email email,
         CancellationToken cancellationToken = default
-    ) => QueryWithTokens().SingleOrDefaultAsync(u => u.Email == email, cancellationToken);
+    ) => QueryWithAggregate().SingleOrDefaultAsync(u => u.Email == email, cancellationToken);
 
     public Task<User?> GetByEmailVerificationTokenHashAsync(
         TokenHash hash,
         CancellationToken cancellationToken = default
     ) =>
-        QueryWithTokens()
+        QueryWithAggregate()
             .SingleOrDefaultAsync(
                 u => u.EmailVerificationTokens.Any(t => t.TokenHash == hash),
                 cancellationToken
@@ -29,9 +29,19 @@ public sealed class UserRepository(RecipesDbContext db) : IUserRepository
         TokenHash hash,
         CancellationToken cancellationToken = default
     ) =>
-        QueryWithTokens()
+        QueryWithAggregate()
             .SingleOrDefaultAsync(
                 u => u.PasswordResetTokens.Any(t => t.TokenHash == hash),
+                cancellationToken
+            );
+
+    public Task<User?> GetByTwoFactorChallengeHashAsync(
+        TokenHash challengeHash,
+        CancellationToken cancellationToken = default
+    ) =>
+        QueryWithAggregate()
+            .SingleOrDefaultAsync(
+                u => u.TwoFactorChallenges.Any(c => c.TokenHash == challengeHash),
                 cancellationToken
             );
 
@@ -55,6 +65,11 @@ public sealed class UserRepository(RecipesDbContext db) : IUserRepository
         }
     }
 
-    private IQueryable<User> QueryWithTokens() =>
-        db.Users.Include(u => u.EmailVerificationTokens).Include(u => u.PasswordResetTokens);
+    private IQueryable<User> QueryWithAggregate() =>
+        db.Users
+            .Include(u => u.EmailVerificationTokens)
+            .Include(u => u.PasswordResetTokens)
+            .Include(u => u.Totp)
+            .Include(u => u.RecoveryCodes)
+            .Include(u => u.TwoFactorChallenges);
 }

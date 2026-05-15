@@ -51,6 +51,7 @@ public class AuthController(IAuthService authService) : ControllerBase
     [HttpPost("login")]
     [EnableRateLimiting("auth")]
     [ProducesResponseType<AuthResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<TwoFactorRequiredResponse>(StatusCodes.Status202Accepted)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> Login(LoginRequest request, CancellationToken cancellationToken)
@@ -59,18 +60,59 @@ public class AuthController(IAuthService authService) : ControllerBase
 
         return result switch
         {
-            AuthResult.Success s => Ok(
-                new AuthResponse
-                {
-                    UserId = s.UserId,
-                    Email = s.Email,
-                    AccessToken = s.AccessToken.Token,
-                    TokenType = "Bearer",
-                    ExpiresAt = s.AccessToken.ExpiresAt,
-                    RefreshToken = s.RefreshToken,
-                }
+            AuthResult.Success s => Ok(MapToAuthResponse(s)),
+            AuthResult.TwoFactorRequired t => Accepted(
+                new TwoFactorRequiredResponse(
+                    t.UserId,
+                    t.ChallengeToken,
+                    t.AvailableMethods.ToArray()
+                )
             ),
             AuthResult.InvalidCredentials => Unauthorized(new { error = "Invalid credentials." }),
+            AuthResult.EmailNotVerified => StatusCode(
+                StatusCodes.Status403Forbidden,
+                new { error = "Email not verified. Please check your email for a verification link." }
+            ),
+            _ => StatusCode(StatusCodes.Status500InternalServerError),
+        };
+    }
+
+    /// <summary>
+    /// Verify a two-factor authentication challenge with a TOTP or recovery code.
+    /// </summary>
+    /// <response code="200">Two-factor verification successful.</response>
+    /// <response code="400">Invalid two-factor code.</response>
+    /// <response code="401">Invalid or expired challenge token.</response>
+    /// <response code="403">Email not verified.</response>
+    [HttpPost("verify-totp")]
+    [EnableRateLimiting("twofa")]
+    [ProducesResponseType<AuthResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> VerifyTotp(
+        VerifyTotpRequest request,
+        CancellationToken cancellationToken
+    )
+    {
+        var result = await authService.VerifyTotpAsync(
+            request.ChallengeToken,
+            request.Code,
+            cancellationToken
+        );
+
+        return result switch
+        {
+            AuthResult.Success s => Ok(MapToAuthResponse(s)),
+            AuthResult.InvalidChallengeToken => Unauthorized(
+                new { error = "Invalid challenge token." }
+            ),
+            AuthResult.ChallengeTokenExpired => Unauthorized(
+                new { error = "Challenge token expired." }
+            ),
+            AuthResult.InvalidTwoFactorCode => BadRequest(
+                new { error = "Invalid two-factor code." }
+            ),
             AuthResult.EmailNotVerified => StatusCode(
                 StatusCodes.Status403Forbidden,
                 new { error = "Email not verified. Please check your email for a verification link." }
@@ -239,4 +281,15 @@ public class AuthController(IAuthService authService) : ControllerBase
             _ => StatusCode(StatusCodes.Status500InternalServerError),
         };
     }
+
+    private static AuthResponse MapToAuthResponse(AuthResult.Success success) =>
+        new()
+        {
+            UserId = success.UserId,
+            Email = success.Email,
+            AccessToken = success.AccessToken.Token,
+            TokenType = "Bearer",
+            ExpiresAt = success.AccessToken.ExpiresAt,
+            RefreshToken = success.RefreshToken,
+        };
 }

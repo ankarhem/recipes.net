@@ -10,6 +10,8 @@ public sealed class AuthService(
     IPasswordHasher passwordHasher,
     IAccessTokenService accessTokenService,
     ISecureTokenGenerator secureTokenGenerator,
+    ITotpService totpService,
+    ITotpSecretProtector totpSecretProtector,
     IEmailWorkflowStarter emailWorkflowStarter,
     IClock clock
 ) : IAuthService
@@ -17,6 +19,7 @@ public sealed class AuthService(
     private const int RefreshTokenDays = 7;
     private const int EmailVerificationHours = 24;
     private const int PasswordResetMinutes = 60;
+    private const int TwoFactorChallengeMinutes = 5;
 
     public async Task<AuthResult> RegisterAsync(
         string email,
@@ -76,8 +79,88 @@ public sealed class AuthService(
             return new AuthResult.EmailNotVerified();
         }
 
+        if (user.HasTwoFactorEnabled)
+        {
+            var (plainToken, hashedToken) = secureTokenGenerator.Generate();
+            var expiresAt = clock.UtcNow.AddMinutes(TwoFactorChallengeMinutes);
+            user.IssueTwoFactorChallenge(TokenHash.From(hashedToken), expiresAt, clock);
+            await users.SaveChangesAsync(cancellationToken);
+            return new AuthResult.TwoFactorRequired(user.Id.Value, plainToken, ["totp"]);
+        }
+
         var accessToken = accessTokenService.Generate(user.Id.Value, user.Email.Value);
         var refreshToken = await IssueSessionAsync(user.Id, cancellationToken);
+
+        return new AuthResult.Success(user.Id.Value, user.Email.Value, accessToken, refreshToken);
+    }
+
+    public async Task<AuthResult> VerifyTotpAsync(
+        string challengeToken,
+        string code,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var challengeHash = TokenHash.From(TokenHasher.Hash(challengeToken));
+        var user = await users.GetByTwoFactorChallengeHashAsync(challengeHash, cancellationToken);
+        if (user is null)
+        {
+            return new AuthResult.InvalidChallengeToken();
+        }
+
+        var challenge = user.TwoFactorChallenges.SingleOrDefault(c => c.TokenHash == challengeHash);
+        if (challenge is null || challenge.IsConsumed)
+        {
+            return new AuthResult.InvalidChallengeToken();
+        }
+
+        if (challenge.IsExpired(clock.UtcNow))
+        {
+            return new AuthResult.ChallengeTokenExpired();
+        }
+
+        var normalizedCode = code.Trim();
+        var recoveryCodeUsed = false;
+        if (IsLikelyTotpCode(normalizedCode))
+        {
+            if (!VerifyTotpCode(user, normalizedCode))
+            {
+                return new AuthResult.InvalidTwoFactorCode();
+            }
+        }
+        else
+        {
+            if (!ConsumeRecoveryCode(user, normalizedCode))
+            {
+                return new AuthResult.InvalidTwoFactorCode();
+            }
+            recoveryCodeUsed = true;
+        }
+
+        if (!user.ConsumeTwoFactorChallenge(challengeHash, clock))
+        {
+            return new AuthResult.InvalidChallengeToken();
+        }
+
+        if (recoveryCodeUsed)
+        {
+            user.DisableTwoFactor(clock);
+        }
+
+        await using var uow = await unitOfWork.BeginAsync(cancellationToken);
+
+        try
+        {
+            await users.SaveChangesAsync(cancellationToken);
+        }
+        catch (ConcurrencyConflictException)
+        {
+            user.RemoveTwoFactorChallenge(challengeHash, clock);
+            return new AuthResult.InvalidChallengeToken();
+        }
+
+        var accessToken = accessTokenService.Generate(user.Id.Value, user.Email.Value);
+        var refreshToken = await IssueSessionAsync(user.Id, cancellationToken);
+        await uow.CommitAsync(cancellationToken);
 
         return new AuthResult.Success(user.Id.Value, user.Email.Value, accessToken, refreshToken);
     }
@@ -301,4 +384,29 @@ public sealed class AuthService(
         await userSessions.SaveChangesAsync(cancellationToken);
         return plainToken;
     }
+
+    private bool VerifyTotpCode(User user, string code)
+    {
+        if (user.Totp is null || !user.Totp.IsVerified)
+        {
+            return false;
+        }
+
+        var secret = totpSecretProtector.Unprotect(user.Totp.EncryptedSecret.Value);
+        var result = totpService.Verify(secret, code);
+        return result is TotpVerificationResult.Match match
+            && user.VerifyAndAdvanceTotp(match.Step, clock);
+    }
+
+    private bool ConsumeRecoveryCode(User user, string code)
+    {
+        var recoveryCode = user.RecoveryCodes
+            .Where(c => !c.IsConsumed)
+            .FirstOrDefault(c => passwordHasher.Verify(code, c.CodeHash.Value));
+
+        return recoveryCode is not null && user.ConsumeRecoveryCode(recoveryCode.Id, clock);
+    }
+
+    private static bool IsLikelyTotpCode(string code) =>
+        code.Length == 6 && code.All(char.IsDigit);
 }

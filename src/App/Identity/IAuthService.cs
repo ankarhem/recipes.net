@@ -12,6 +12,11 @@ public interface IAuthService
         string password,
         CancellationToken cancellationToken = default
     );
+    Task<AuthResult> VerifyTotpAsync(
+        string challengeToken,
+        string code,
+        CancellationToken cancellationToken = default
+    );
     Task<AuthResult> RefreshAsync(string refreshToken, CancellationToken cancellationToken = default);
     Task<AuthResult> VerifyEmailAsync(
         string token,

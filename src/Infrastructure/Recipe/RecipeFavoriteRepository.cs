@@ -1,4 +1,5 @@
 using App.Recipe;
+using Domain.Identity;
 using Infrastructure.Recipe;
 using Microsoft.EntityFrameworkCore;
 using DomainRecipeFavorite = Domain.Recipe.RecipeFavorite;
@@ -13,9 +14,10 @@ public sealed class RecipeFavoriteRepository(RecipesDbContext db) : IRecipeFavor
         CancellationToken cancellationToken = default
     )
     {
+        var typedUserId = new UserId(userId);
         var entity = await db.RecipeFavorites.AsNoTracking()
             .SingleOrDefaultAsync(
-                f => f.UserId == userId && f.RecipeId == recipeId,
+                f => f.UserId == typedUserId && f.RecipeId == recipeId,
                 cancellationToken
             );
 
@@ -30,7 +32,7 @@ public sealed class RecipeFavoriteRepository(RecipesDbContext db) : IRecipeFavor
     {
         var entity = new RecipeFavoriteEntity
         {
-            UserId = userId,
+            UserId = new UserId(userId),
             RecipeId = recipeId,
             CreatedAt = DateTimeOffset.UtcNow,
         };
@@ -45,8 +47,9 @@ public sealed class RecipeFavoriteRepository(RecipesDbContext db) : IRecipeFavor
         CancellationToken cancellationToken = default
     )
     {
+        var typedUserId = new UserId(userId);
         var entity = await db.RecipeFavorites.SingleOrDefaultAsync(
-            f => f.UserId == userId && f.RecipeId == recipeId,
+            f => f.UserId == typedUserId && f.RecipeId == recipeId,
             cancellationToken
         );
         if (entity is not null)
@@ -61,8 +64,9 @@ public sealed class RecipeFavoriteRepository(RecipesDbContext db) : IRecipeFavor
         CancellationToken cancellationToken = default
     )
     {
+        var typedUserId = new UserId(userId);
         return await db.RecipeFavorites.AsNoTracking()
-            .Where(f => f.UserId == userId)
+            .Where(f => f.UserId == typedUserId)
             .OrderByDescending(f => f.CreatedAt)
             .Select(f => f.RecipeId)
             .ToListAsync(cancellationToken);

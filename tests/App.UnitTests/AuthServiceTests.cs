@@ -83,7 +83,7 @@ public class AuthServiceTests
     }
 
     [Fact]
-    public async Task LoginAsync_ValidVerifiedUser_ReturnsSuccessAndIssuesSession()
+    public async Task LoginAsync_WhenUserHasNoTwoFactor_ReturnsSuccessAsBefore()
     {
         var ctx = CreateSut();
         var user = CreateVerifiedUser(ctx.Clock);
@@ -109,6 +109,212 @@ public class AuthServiceTests
                 Arg.Any<CancellationToken>()
             );
         await ctx.UserSessionRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task LoginAsync_WhenUserHasTwoFactorEnabled_ReturnsTwoFactorRequiredAndIssuesChallenge()
+    {
+        var ctx = CreateSut();
+        var user = CreateTwoFactorEnabledUser(ctx.Clock);
+        GivenUserByEmail(ctx, user);
+        ctx.PasswordHasher.Verify("password", user.PasswordHash.Value).Returns(true);
+        ctx.SecureTokenGenerator.Generate().Returns(("challenge-token", "challenge-hash"));
+
+        var result = await ctx.Sut.LoginAsync("test@example.com", "password");
+
+        var required = result.Should().BeOfType<AuthResult.TwoFactorRequired>().Subject;
+        required.UserId.Should().Be(user.Id.Value);
+        required.ChallengeToken.Should().Be("challenge-token");
+        required.AvailableMethods.Should().Equal("totp");
+        var challenge = user.TwoFactorChallenges.Should().ContainSingle().Which;
+        challenge.TokenHash.Should().Be(TokenHash.From("challenge-hash"));
+        challenge.ExpiresAt.Should().Be(ctx.Clock.UtcNow.AddMinutes(5));
+        await ctx.UserRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        ctx.AccessTokenService.DidNotReceiveWithAnyArgs().Generate(default, default!);
+        await ctx.UserSessionRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
+    }
+
+    [Fact]
+    public async Task VerifyTotpAsync_WithUnknownChallenge_ReturnsInvalidChallengeToken()
+    {
+        var ctx = CreateSut();
+        GivenUserByTwoFactorChallenge(ctx, null);
+
+        var result = await ctx.Sut.VerifyTotpAsync("missing-challenge", "123456");
+
+        result.Should().BeOfType<AuthResult.InvalidChallengeToken>();
+        await ctx.UserRepository
+            .Received(1)
+            .GetByTwoFactorChallengeHashAsync(
+                TokenHash.From(TokenHasher.Hash("missing-challenge")),
+                Arg.Any<CancellationToken>()
+            );
+        await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.UserSessionRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
+    }
+
+    [Fact]
+    public async Task VerifyTotpAsync_WithExpiredChallenge_ReturnsChallengeTokenExpired()
+    {
+        var ctx = CreateSut();
+        var user = CreateTwoFactorEnabledUser(ctx.Clock);
+        var challengeHash = IssueTwoFactorChallenge(user, "expired-challenge", ctx.Clock, TimeSpan.FromMinutes(-1));
+        GivenUserByTwoFactorChallenge(ctx, user);
+
+        var result = await ctx.Sut.VerifyTotpAsync("expired-challenge", "123456");
+
+        result.Should().BeOfType<AuthResult.ChallengeTokenExpired>();
+        user.TwoFactorChallenges.Single(c => c.TokenHash == challengeHash).ConsumedAt.Should().BeNull();
+        await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.UserSessionRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
+    }
+
+    [Fact]
+    public async Task VerifyTotpAsync_WithConsumedChallenge_ReturnsInvalidChallengeToken()
+    {
+        var ctx = CreateSut();
+        var user = CreateTwoFactorEnabledUser(ctx.Clock);
+        var challengeHash = IssueTwoFactorChallenge(user, "consumed-challenge", ctx.Clock, TimeSpan.FromMinutes(5));
+        user.ConsumeTwoFactorChallenge(challengeHash, ctx.Clock).Should().BeTrue();
+        GivenUserByTwoFactorChallenge(ctx, user);
+
+        var result = await ctx.Sut.VerifyTotpAsync("consumed-challenge", "123456");
+
+        result.Should().BeOfType<AuthResult.InvalidChallengeToken>();
+        await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.UserSessionRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
+    }
+
+    [Fact]
+    public async Task VerifyTotpAsync_WithValidTotpCode_ReturnsSuccessAndIssuesSession()
+    {
+        var ctx = CreateSut();
+        var user = CreateTwoFactorEnabledUser(ctx.Clock);
+        var challengeHash = IssueTwoFactorChallenge(user, "challenge-token", ctx.Clock, TimeSpan.FromMinutes(5));
+        var secret = GivenTotpSecret(ctx);
+        GivenUserByTwoFactorChallenge(ctx, user);
+        ctx.TotpService.Verify(secret, "123456").Returns(new TotpVerificationResult.Match(101));
+        ctx.SecureTokenGenerator.Generate().Returns(("refresh-token", "hashed-refresh-token"));
+
+        var result = await ctx.Sut.VerifyTotpAsync("challenge-token", "123456");
+
+        var success = result.Should().BeOfType<AuthResult.Success>().Subject;
+        success.UserId.Should().Be(user.Id.Value);
+        success.Email.Should().Be(user.Email.Value);
+        success.AccessToken.Should().Be(TestAccessToken);
+        success.RefreshToken.Should().Be("refresh-token");
+        user.Totp!.LastUsedStep.Should().Be(101);
+        user.TwoFactorChallenges.Single(c => c.TokenHash == challengeHash).ConsumedAt.Should().Be(ctx.Clock.UtcNow);
+        await ctx.UserRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await ctx.UserSessionRepository
+            .Received(1)
+            .AddAsync(
+                Arg.Is<UserSession>(session =>
+                    IsIssuedSession(session, user.Id, "hashed-refresh-token", ctx.Clock.UtcNow)
+                ),
+                Arg.Any<CancellationToken>()
+            );
+        await ctx.UnitOfWorkScope.Received(1).CommitAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task VerifyTotpAsync_WithReplayedTotpStep_ReturnsInvalidTwoFactorCode()
+    {
+        var ctx = CreateSut();
+        var user = CreateTwoFactorEnabledUser(ctx.Clock);
+        IssueTwoFactorChallenge(user, "challenge-token", ctx.Clock, TimeSpan.FromMinutes(5));
+        var secret = GivenTotpSecret(ctx);
+        GivenUserByTwoFactorChallenge(ctx, user);
+        ctx.TotpService.Verify(secret, "123456").Returns(new TotpVerificationResult.Match(100));
+
+        var result = await ctx.Sut.VerifyTotpAsync("challenge-token", "123456");
+
+        result.Should().BeOfType<AuthResult.InvalidTwoFactorCode>();
+        user.Totp!.LastUsedStep.Should().Be(100);
+        user.TwoFactorChallenges.Single().ConsumedAt.Should().BeNull();
+        await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.UserSessionRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
+    }
+
+    [Fact]
+    public async Task VerifyTotpAsync_WithInvalidTotpCode_ReturnsInvalidTwoFactorCode()
+    {
+        var ctx = CreateSut();
+        var user = CreateTwoFactorEnabledUser(ctx.Clock);
+        IssueTwoFactorChallenge(user, "challenge-token", ctx.Clock, TimeSpan.FromMinutes(5));
+        var secret = GivenTotpSecret(ctx);
+        GivenUserByTwoFactorChallenge(ctx, user);
+        ctx.TotpService.Verify(secret, "123456").Returns(new TotpVerificationResult.NoMatch());
+
+        var result = await ctx.Sut.VerifyTotpAsync("challenge-token", "123456");
+
+        result.Should().BeOfType<AuthResult.InvalidTwoFactorCode>();
+        user.TwoFactorChallenges.Single().ConsumedAt.Should().BeNull();
+        await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.UserSessionRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
+    }
+
+    [Fact]
+    public async Task VerifyTotpAsync_WithValidRecoveryCode_DisablesTwoFactorAndIssuesSession()
+    {
+        var ctx = CreateSut();
+        var user = CreateTwoFactorEnabledUser(
+            ctx.Clock,
+            recoveryCodeHashes: ["hashed-recovery-code-1", "hashed-recovery-code-2"]
+        );
+        IssueTwoFactorChallenge(user, "challenge-token", ctx.Clock, TimeSpan.FromMinutes(5));
+        GivenUserByTwoFactorChallenge(ctx, user);
+        ctx.PasswordHasher.Verify("ABCD-EFGH-JKMP", "hashed-recovery-code-1").Returns(true);
+        ctx.SecureTokenGenerator.Generate().Returns(("refresh-token", "hashed-refresh-token"));
+
+        var result = await ctx.Sut.VerifyTotpAsync("challenge-token", "ABCD-EFGH-JKMP");
+
+        var success = result.Should().BeOfType<AuthResult.Success>().Subject;
+        success.UserId.Should().Be(user.Id.Value);
+        success.RefreshToken.Should().Be("refresh-token");
+        user.HasTwoFactorEnabled.Should().BeFalse();
+        user.Totp.Should().BeNull();
+        user.RecoveryCodes.Should().BeEmpty();
+        await ctx.UserRepository.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await ctx.UserSessionRepository.Received(1).AddAsync(Arg.Any<UserSession>(), Arg.Any<CancellationToken>());
+        await ctx.UnitOfWorkScope.Received(1).CommitAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task VerifyTotpAsync_WithConsumedRecoveryCode_ReturnsInvalidTwoFactorCode()
+    {
+        var ctx = CreateSut();
+        var user = CreateTwoFactorEnabledUser(ctx.Clock, recoveryCodeHashes: ["hashed-recovery-code"]);
+        IssueTwoFactorChallenge(user, "challenge-token", ctx.Clock, TimeSpan.FromMinutes(5));
+        var recoveryCode = user.RecoveryCodes.Single();
+        user.ConsumeRecoveryCode(recoveryCode.Id, ctx.Clock).Should().BeTrue();
+        GivenUserByTwoFactorChallenge(ctx, user);
+        ctx.PasswordHasher.Verify("ABCD-EFGH-JKMP", "hashed-recovery-code").Returns(true);
+
+        var result = await ctx.Sut.VerifyTotpAsync("challenge-token", "ABCD-EFGH-JKMP");
+
+        result.Should().BeOfType<AuthResult.InvalidTwoFactorCode>();
+        user.TwoFactorChallenges.Single().ConsumedAt.Should().BeNull();
+        await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.UserSessionRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
+    }
+
+    [Fact]
+    public async Task VerifyTotpAsync_WithUnknownRecoveryCode_ReturnsInvalidTwoFactorCode()
+    {
+        var ctx = CreateSut();
+        var user = CreateTwoFactorEnabledUser(ctx.Clock, recoveryCodeHashes: ["hashed-recovery-code"]);
+        IssueTwoFactorChallenge(user, "challenge-token", ctx.Clock, TimeSpan.FromMinutes(5));
+        GivenUserByTwoFactorChallenge(ctx, user);
+        ctx.PasswordHasher.Verify("ABCD-EFGH-JKMP", "hashed-recovery-code").Returns(false);
+
+        var result = await ctx.Sut.VerifyTotpAsync("challenge-token", "ABCD-EFGH-JKMP");
+
+        result.Should().BeOfType<AuthResult.InvalidTwoFactorCode>();
+        user.RecoveryCodes.Single().IsConsumed.Should().BeFalse();
+        user.TwoFactorChallenges.Single().ConsumedAt.Should().BeNull();
+        await ctx.UserRepository.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        await ctx.UserSessionRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
     }
 
     [Fact]
@@ -696,6 +902,8 @@ public class AuthServiceTests
         var passwordHasher = Substitute.For<IPasswordHasher>();
         var accessTokenService = Substitute.For<IAccessTokenService>();
         var secureTokenGenerator = Substitute.For<ISecureTokenGenerator>();
+        var totpService = Substitute.For<ITotpService>();
+        var totpSecretProtector = Substitute.For<ITotpSecretProtector>();
         var emailWorkflowStarter = Substitute.For<IEmailWorkflowStarter>();
 
         userRepository
@@ -715,6 +923,11 @@ public class AuthServiceTests
             );
         userRepository
             .GetByPasswordResetTokenHashAsync(default!, default)
+            .ReturnsForAnyArgs(
+                (Func<CallInfo, Task<User?>>)(_ => Task.FromResult<User?>(null))
+            );
+        userRepository
+            .GetByTwoFactorChallengeHashAsync(default!, default)
             .ReturnsForAnyArgs(
                 (Func<CallInfo, Task<User?>>)(_ => Task.FromResult<User?>(null))
             );
@@ -757,6 +970,10 @@ public class AuthServiceTests
 
         accessTokenService.Generate(default, default!).ReturnsForAnyArgs(TestAccessToken);
         secureTokenGenerator.Generate().Returns(("generated-token", "generated-token-hash"));
+        totpService
+            .Verify(default!, default!)
+            .ReturnsForAnyArgs(new TotpVerificationResult.NoMatch());
+        totpSecretProtector.Unprotect(default!).ReturnsForAnyArgs([]);
 
         emailWorkflowStarter
             .StartVerificationWorkflowAsync(default, default!, default!, default)
@@ -772,6 +989,8 @@ public class AuthServiceTests
             passwordHasher,
             accessTokenService,
             secureTokenGenerator,
+            totpService,
+            totpSecretProtector,
             emailWorkflowStarter,
             clock
         );
@@ -785,6 +1004,8 @@ public class AuthServiceTests
             passwordHasher,
             accessTokenService,
             secureTokenGenerator,
+            totpService,
+            totpSecretProtector,
             emailWorkflowStarter,
             clock
         );
@@ -796,6 +1017,26 @@ public class AuthServiceTests
         var hash = TokenHash.From("verified-email-token-hash");
         user.IssueEmailVerificationToken(hash, clock.UtcNow.AddHours(1), clock);
         user.VerifyEmail(hash, clock).Should().BeTrue();
+        return user;
+    }
+
+    private static User CreateTwoFactorEnabledUser(
+        FakeClock clock,
+        long lastUsedStep = 100,
+        IReadOnlyList<string>? recoveryCodeHashes = null
+    )
+    {
+        var user = CreateVerifiedUser(clock);
+        user.StartTwoFactorSetup(EncryptedTotpSecret.From("protected-secret"), clock);
+        user.ConfirmTwoFactor(
+                lastUsedStep,
+                (recoveryCodeHashes ?? ["recovery-code-hash"])
+                    .Select(RecoveryCodeHash.From)
+                    .ToArray(),
+                clock
+            )
+            .Should()
+            .BeTrue();
         return user;
     }
 
@@ -839,12 +1080,36 @@ public class AuthServiceTests
             .GetByPasswordResetTokenHashAsync(default!, default)
             .ReturnsForAnyArgs((Func<CallInfo, Task<User?>>)(_ => Task.FromResult(user)));
 
+    private static void GivenUserByTwoFactorChallenge(SutContext ctx, User? user) =>
+        ctx.UserRepository
+            .GetByTwoFactorChallengeHashAsync(default!, default)
+            .ReturnsForAnyArgs((Func<CallInfo, Task<User?>>)(_ => Task.FromResult(user)));
+
     private static void GivenSessionByRefreshToken(SutContext ctx, UserSession? session) =>
         ctx.UserSessionRepository
             .GetByTokenHashAsync(default!, default)
             .ReturnsForAnyArgs(
                 (Func<CallInfo, Task<UserSession?>>)(_ => Task.FromResult(session))
             );
+
+    private static byte[] GivenTotpSecret(SutContext ctx)
+    {
+        var secret = new byte[] { 1, 2, 3, 4 };
+        ctx.TotpSecretProtector.Unprotect("protected-secret").Returns(secret);
+        return secret;
+    }
+
+    private static TokenHash IssueTwoFactorChallenge(
+        User user,
+        string plainToken,
+        FakeClock clock,
+        TimeSpan expiresIn
+    )
+    {
+        var hash = TokenHash.From(TokenHasher.Hash(plainToken));
+        user.IssueTwoFactorChallenge(hash, clock.UtcNow.Add(expiresIn), clock);
+        return hash;
+    }
 
     private static bool IsIssuedSession(
         UserSession? session,
@@ -868,6 +1133,8 @@ public class AuthServiceTests
         IPasswordHasher PasswordHasher,
         IAccessTokenService AccessTokenService,
         ISecureTokenGenerator SecureTokenGenerator,
+        ITotpService TotpService,
+        ITotpSecretProtector TotpSecretProtector,
         IEmailWorkflowStarter EmailWorkflowStarter,
         FakeClock Clock
     );
