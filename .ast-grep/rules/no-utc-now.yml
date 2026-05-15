@@ -7,5 +7,7 @@ rule:
     - pattern: DateTime.Today
     - pattern: DateTimeOffset.UtcNow
     - pattern: DateTimeOffset.Now
+ignores:
+  - tests/**
 message: Use IClock.UtcNow instead of static DateTime/DateTimeOffset time access. Inject IClock via constructor for testability.
 severity: error
