@@ -1,8 +1,7 @@
-using Domain.Recipes;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace App.Embedding;
+namespace Domain.Recipes;
 
 public sealed class RecipeEmbeddingTextBuilder : IRecipeEmbeddingTextBuilder
 {

@@ -1,16 +1,17 @@
-using App.Identity;
 using App.Crawler;
 using App.Embedding;
+using App.Identity;
 using App.Recipes;
-using Infrastructure.Identity;
+using Domain.Recipes;
 using Infrastructure.Crawler;
 using Infrastructure.Embedding;
+using Infrastructure.Identity;
 using Infrastructure.Recipes;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
-using Microsoft.AspNetCore.RateLimiting;
 using OpenAI;
 using OpenTelemetry.Exporter;
 using OpenTelemetry.Metrics;
@@ -18,10 +19,10 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Pgvector.EntityFrameworkCore;
 using Scalar.AspNetCore;
+using System.Threading.RateLimiting;
 using Temporalio.Client;
 using Temporalio.Extensions.Hosting;
 using Temporalio.Extensions.OpenTelemetry;
-using System.Threading.RateLimiting;
 using Web.ExceptionHandling;
 using Web.HealthChecks;
 using Web.Serialization;
@@ -348,6 +349,7 @@ builder.Services.AddSingleton<IEmbeddingGenerator<string, Embedding<float>>>(sp 
 });
 
 builder.Services.AddHttpClient<ICrawlerClient, CrawlerClient>();
+builder.Services.AddSingleton<IRecipeExtractor, JsonLdRecipeExtractor>();
 builder.Services.AddSingleton<IScraperService, ScraperService>();
 builder.Services.AddSingleton<ICrawlerService>(sp => new CrawlerService(
     sp.GetRequiredService<ILogger<CrawlerService>>(),

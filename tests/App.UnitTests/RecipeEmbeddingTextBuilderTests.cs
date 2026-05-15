@@ -1,4 +1,3 @@
-using App.Embedding;
 using AwesomeAssertions;
 using Domain.Recipes;
 using Xunit;

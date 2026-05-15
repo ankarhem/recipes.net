@@ -93,7 +93,7 @@ public class CrawlerWorkflowTests
 
         var activities = new CrawlerActivities(
             client,
-            new ScraperService(NullLogger<ScraperService>.Instance),
+            CreateScraperService(),
             repository,
             NullLogger<CrawlerActivities>.Instance
         );
@@ -135,7 +135,7 @@ public class CrawlerWorkflowTests
 
         var activities = new CrawlerActivities(
             client,
-            new ScraperService(NullLogger<ScraperService>.Instance),
+            CreateScraperService(),
             repository,
             NullLogger<CrawlerActivities>.Instance
         );
@@ -192,7 +192,7 @@ public class CrawlerWorkflowTests
 
         var activities = new CrawlerActivities(
             client,
-            new ScraperService(NullLogger<ScraperService>.Instance),
+            CreateScraperService(),
             Substitute.For<IRecipeRepository>(),
             NullLogger<CrawlerActivities>.Instance
         );
@@ -243,7 +243,7 @@ public class CrawlerWorkflowTests
 
         var activities = new CrawlerActivities(
             client,
-            new ScraperService(NullLogger<ScraperService>.Instance),
+            CreateScraperService(),
             Substitute.For<IRecipeRepository>(),
             NullLogger<CrawlerActivities>.Instance
         );
@@ -306,7 +306,7 @@ public class CrawlerWorkflowTests
 
         var activities = new CrawlerActivities(
             client,
-            new ScraperService(NullLogger<ScraperService>.Instance),
+            CreateScraperService(),
             repository,
             NullLogger<CrawlerActivities>.Instance
         );
@@ -369,7 +369,7 @@ public class CrawlerWorkflowTests
 
         var activities = new CrawlerActivities(
             client,
-            new ScraperService(NullLogger<ScraperService>.Instance),
+            CreateScraperService(),
             repository,
             NullLogger<CrawlerActivities>.Instance
         );
@@ -412,7 +412,7 @@ public class CrawlerWorkflowTests
 
         var activities = new CrawlerActivities(
             client,
-            new ScraperService(NullLogger<ScraperService>.Instance),
+            CreateScraperService(),
             Substitute.For<IRecipeRepository>(),
             NullLogger<CrawlerActivities>.Instance
         );
@@ -469,7 +469,7 @@ public class CrawlerWorkflowTests
 
         var activities = new CrawlerActivities(
             client,
-            new ScraperService(NullLogger<ScraperService>.Instance),
+            CreateScraperService(),
             Substitute.For<IRecipeRepository>(),
             NullLogger<CrawlerActivities>.Instance
         );
@@ -515,7 +515,7 @@ public class CrawlerWorkflowTests
 
         var activities = new CrawlerActivities(
             client,
-            new ScraperService(NullLogger<ScraperService>.Instance),
+            CreateScraperService(),
             Substitute.For<IRecipeRepository>(),
             NullLogger<CrawlerActivities>.Instance
         );
@@ -570,7 +570,7 @@ public class CrawlerWorkflowTests
 
         var activities = new CrawlerActivities(
             client,
-            new ScraperService(NullLogger<ScraperService>.Instance),
+            CreateScraperService(),
             Substitute.For<IRecipeRepository>(),
             NullLogger<CrawlerActivities>.Instance
         );
@@ -602,6 +602,12 @@ public class CrawlerWorkflowTests
             await handle.GetResultAsync();
         });
     }
+
+    private static ScraperService CreateScraperService() =>
+        new(
+            NullLogger<ScraperService>.Instance,
+            new JsonLdRecipeExtractor(NullLogger<JsonLdRecipeExtractor>.Instance)
+        );
 
     private static EmbeddingActivities CreateEmbeddingActivities(Exception? exception = null)
     {

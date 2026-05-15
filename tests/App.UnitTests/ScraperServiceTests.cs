@@ -1,3 +1,4 @@
+using App.Recipes;
 using AwesomeAssertions;
 using Infrastructure.Crawler;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -131,7 +132,11 @@ public class ScraperServiceTests
         </head><body>graph page</body></html>
         """;
 
-    private static ScraperService CreateService() => new(NullLogger<ScraperService>.Instance);
+    private static ScraperService CreateService() =>
+        new(
+            NullLogger<ScraperService>.Instance,
+            new JsonLdRecipeExtractor(NullLogger<JsonLdRecipeExtractor>.Instance)
+        );
 
     [Fact]
     public async Task ExtractPageAsync_PageWithRecipeJsonLd_ExtractsRecipe()

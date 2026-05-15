@@ -1,7 +1,4 @@
-
-using Domain.Recipes;
-
-namespace App.Embedding;
+namespace Domain.Recipes;
 
 public interface IRecipeEmbeddingTextBuilder
 {
