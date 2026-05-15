@@ -2,15 +2,16 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using App.Identity;
+using Domain;
 using Microsoft.IdentityModel.Tokens;
 
 namespace Infrastructure.Identity;
 
-public sealed class JwtAccessTokenService(JwtAccessTokenOptions options) : IAccessTokenService
+public sealed class JwtAccessTokenService(JwtAccessTokenOptions options, IClock clock) : IAccessTokenService
 {
     public AccessToken Generate(Guid userId, string email)
     {
-        var now = DateTimeOffset.UtcNow;
+        var now = clock.UtcNow;
         var expires = now.AddMinutes(options.AccessTokenMinutes);
         var claims = new[]
         {

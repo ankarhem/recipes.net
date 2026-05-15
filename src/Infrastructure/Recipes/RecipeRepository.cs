@@ -1,4 +1,5 @@
 using App.Recipes;
+using Domain;
 using Domain.Recipes;
 using Microsoft.EntityFrameworkCore;
 using Pgvector.EntityFrameworkCore;
@@ -6,7 +7,7 @@ using Pgvector;
 
 namespace Infrastructure.Recipes;
 
-public sealed class RecipeRepository(RecipesDbContext db) : IRecipeRepository
+public sealed class RecipeRepository(RecipesDbContext db, IClock clock) : IRecipeRepository
 {
     public async Task<Recipe?> GetByIdAsync(
         Guid id,
@@ -44,7 +45,7 @@ public sealed class RecipeRepository(RecipesDbContext db) : IRecipeRepository
             return existing.Id;
         }
 
-        var entity = RecipeEntity.FromImport(recipe, sourceUrl, rawSchemaJson);
+        var entity = RecipeEntity.FromImport(recipe, sourceUrl, rawSchemaJson, clock.UtcNow);
         await db.Recipes.AddAsync(entity, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
 
