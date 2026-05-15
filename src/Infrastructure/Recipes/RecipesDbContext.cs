@@ -289,14 +289,9 @@ public sealed class RecipesDbContext(DbContextOptions<RecipesDbContext> options)
         modelBuilder.Entity<RecipeFavoriteEntity>(entity =>
         {
             entity.HasKey(e => new { e.UserId, e.RecipeId });
-            entity.Property(e => e.UserId).HasConversion(v => v.Value, v => new UserId(v));
+            entity.Property(e => e.UserId).IsRequired();
             entity.Property(e => e.CreatedAt).IsRequired();
             entity.HasIndex(e => e.RecipeId);
-            entity
-                .HasOne<User>()
-                .WithMany()
-                .HasForeignKey(e => e.UserId)
-                .OnDelete(DeleteBehavior.Cascade);
             entity.HasOne(e => e.Recipe).WithMany().HasForeignKey(e => e.RecipeId);
         });
     }
