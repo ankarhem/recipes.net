@@ -287,6 +287,7 @@ builder
 
 builder.Services.AddScoped<IRecipeRepository, RecipeRepository>();
 builder.Services.AddScoped<IRecipeService, App.Recipes.RecipeService>();
+builder.Services.AddScoped<IRecipeSearchEmbeddingGenerator, RecipeSearchEmbeddingGenerator>();
 builder.Services.AddSingleton<IRecipeEmbeddingTextBuilder, RecipeEmbeddingTextBuilder>();
 builder.Services.AddScoped<IRecipeEmbeddingRepository, RecipeEmbeddingRepository>();
 builder.Services.AddScoped<IEmbeddingService, EmbeddingService>();
