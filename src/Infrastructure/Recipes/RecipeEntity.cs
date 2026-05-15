@@ -55,7 +55,8 @@ public sealed class RecipeEntity
     public static RecipeEntity FromImport(
         Recipe recipe,
         string sourceUrl,
-        string rawSchemaJson
+        string rawSchemaJson,
+        DateTimeOffset now
     )
     {
         return new RecipeEntity
@@ -73,8 +74,8 @@ public sealed class RecipeEntity
             TotalTime = recipe.TotalTime,
             ServingsCount = recipe.ServingsCount,
             JsonLd = rawSchemaJson,
-            CreatedAt = DateTimeOffset.UtcNow,
-            UpdatedAt = DateTimeOffset.UtcNow,
+            CreatedAt = now,
+            UpdatedAt = now,
             IngredientEntities = recipe
                 .Ingredients.Select(i => new RecipeIngredientEntity
                 {

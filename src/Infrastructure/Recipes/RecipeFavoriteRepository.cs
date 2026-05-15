@@ -1,4 +1,5 @@
 using App.Recipes;
+using Domain;
 using Domain.Identity;
 using Domain.Recipes;
 using Infrastructure.Recipes;
@@ -6,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Recipes;
 
-public sealed class RecipeFavoriteRepository(RecipesDbContext db) : IRecipeFavoriteRepository
+public sealed class RecipeFavoriteRepository(RecipesDbContext db, IClock clock) : IRecipeFavoriteRepository
 {
     public async Task<RecipeFavorite?> FindAsync(
         Guid userId,
@@ -34,7 +35,7 @@ public sealed class RecipeFavoriteRepository(RecipesDbContext db) : IRecipeFavor
         {
             UserId = new UserId(userId),
             RecipeId = recipeId,
-            CreatedAt = DateTimeOffset.UtcNow,
+            CreatedAt = clock.UtcNow,
         };
 
         await db.RecipeFavorites.AddAsync(entity, cancellationToken);

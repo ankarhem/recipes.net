@@ -1,4 +1,5 @@
 using App.Embedding;
+using Domain;
 using Infrastructure.Recipes;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
@@ -6,7 +7,7 @@ using Pgvector;
 
 namespace Infrastructure.Embedding;
 
-public sealed class RecipeEmbeddingRepository(RecipesDbContext db) : IRecipeEmbeddingRepository
+public sealed class RecipeEmbeddingRepository(RecipesDbContext db, IClock clock) : IRecipeEmbeddingRepository
 {
     private static readonly string UniqueViolation = "23505";
 
@@ -49,7 +50,7 @@ public sealed class RecipeEmbeddingRepository(RecipesDbContext db) : IRecipeEmbe
             return;
         }
 
-        var now = DateTimeOffset.UtcNow;
+        var now = clock.UtcNow;
         var entity = new RecipeEmbeddingEntity
         {
             Id = Guid.NewGuid(),

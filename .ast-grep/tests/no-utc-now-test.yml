@@ -1,0 +1,19 @@
+id: no-utc-now
+valid:
+  # IClock usage (the intended pattern)
+  - clock.UtcNow
+  - _clock.UtcNow
+  - var now = clock.UtcNow;
+  - |
+    public void Handle(IClock clock) {
+        var now = clock.UtcNow;
+    }
+invalid:
+  - DateTime.UtcNow
+  - DateTime.Now
+  - DateTime.Today
+  - DateTimeOffset.UtcNow
+  - DateTimeOffset.Now
+  - var now = DateTime.UtcNow;
+  - var now = DateTimeOffset.UtcNow;
+  - DateTimeOffset.UtcNow.AddHours(24)

@@ -1,11 +1,12 @@
 using App.Identity;
+using Domain;
 using Domain.Identity;
 using Infrastructure.Recipes;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Identity;
 
-public sealed class UserSessionRepository(RecipesDbContext db) : IUserSessionRepository
+public sealed class UserSessionRepository(RecipesDbContext db, IClock clock) : IUserSessionRepository
 {
     public Task<UserSession?> GetByTokenHashAsync(
         TokenHash hash,
@@ -18,7 +19,7 @@ public sealed class UserSessionRepository(RecipesDbContext db) : IUserSessionRep
         CancellationToken cancellationToken = default
     )
     {
-        var now = DateTimeOffset.UtcNow;
+        var now = clock.UtcNow;
         return await db
             .UserSessions.AsNoTracking()
             .Where(s => s.UserId == userId && s.RevokedAt == null && s.ExpiresAt > now)
@@ -35,7 +36,7 @@ public sealed class UserSessionRepository(RecipesDbContext db) : IUserSessionRep
         CancellationToken cancellationToken = default
     )
     {
-        var now = DateTimeOffset.UtcNow;
+        var now = clock.UtcNow;
         await db
             .UserSessions.Where(s => s.UserId == userId && s.RevokedAt == null)
             .ExecuteUpdateAsync(
