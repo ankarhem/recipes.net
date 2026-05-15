@@ -1,12 +1,10 @@
-using App.Embedding;
 using Domain.Recipes;
-using Microsoft.Extensions.AI;
 
 namespace App.Recipes;
 
 public sealed class RecipeService(
     IRecipeRepository recipeRepository,
-    IEmbeddingGenerator<string, Embedding<float>> embeddingGenerator
+    IRecipeSearchEmbeddingGenerator searchEmbeddingGenerator
 ) : IRecipeService
 {
     public Task<Recipe?> GetRecipeAsync(
@@ -21,21 +19,12 @@ public sealed class RecipeService(
         CancellationToken cancellationToken = default
     )
     {
-        var result = await embeddingGenerator.GenerateAsync(
-            [query],
-            new EmbeddingGenerationOptions
-            {
-                Dimensions = EmbeddingModel.TextEmbedding3Small.Dimensions(),
-            },
-            cancellationToken
-        );
-
-        var embedding = result.First();
+        var embedding = await searchEmbeddingGenerator.GenerateAsync(query, cancellationToken);
 
         return await recipeRepository.SearchAsync(
             embedding.Vector,
-            EmbeddingModel.TextEmbedding3Small.OpenAiModelId(),
-            EmbeddingModel.TextEmbedding3Small.Dimensions(),
+            embedding.Model,
+            embedding.Dimensions,
             limit,
             cancellationToken
         );

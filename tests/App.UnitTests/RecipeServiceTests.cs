@@ -1,8 +1,6 @@
-using App.Embedding;
 using App.Recipes;
 using AwesomeAssertions;
 using Domain.Recipes;
-using Microsoft.Extensions.AI;
 using NSubstitute;
 using Xunit;
 
@@ -28,21 +26,16 @@ public class RecipeServiceTests
     public async Task SearchRecipesAsync_GeneratesEmbeddingAndCallsRepository()
     {
         var repository = Substitute.For<IRecipeRepository>();
-        var generator = Substitute.For<IEmbeddingGenerator<string, Embedding<float>>>();
+        var generator = Substitute.For<IRecipeSearchEmbeddingGenerator>();
 
         var embeddingVector = new float[1536];
         embeddingVector[0] = 0.5f;
 
         generator
-            .GenerateAsync(default!, default!, default)
+            .GenerateAsync(default!, default)
             .ReturnsForAnyArgs(
-                (Func<NSubstitute.Core.CallInfo, Task<GeneratedEmbeddings<Embedding<float>>>>)(
-                    _ =>
-                        Task.FromResult(
-                            new GeneratedEmbeddings<Embedding<float>>([
-                                new Embedding<float>(embeddingVector),
-                            ])
-                        )
+                (Func<NSubstitute.Core.CallInfo, Task<RecipeSearchEmbedding>>)(
+                    _ => Task.FromResult(new RecipeSearchEmbedding(embeddingVector, "text-embedding-3-small", 1536))
                 )
             );
 
@@ -65,10 +58,7 @@ public class RecipeServiceTests
         await generator
             .Received(1)
             .GenerateAsync(
-                Arg.Is<IEnumerable<string>>(texts =>
-                    texts.Count() == 1 && texts.First() == "pasta"
-                ),
-                Arg.Is<EmbeddingGenerationOptions>(o => o.Dimensions == 1536),
+                "pasta",
                 Arg.Any<CancellationToken>()
             );
 
@@ -87,20 +77,15 @@ public class RecipeServiceTests
     public async Task SearchRecipesAsync_EmptyResults_ReturnsEmptyList()
     {
         var repository = Substitute.For<IRecipeRepository>();
-        var generator = Substitute.For<IEmbeddingGenerator<string, Embedding<float>>>();
+        var generator = Substitute.For<IRecipeSearchEmbeddingGenerator>();
 
         var embeddingVector = new float[1536];
 
         generator
-            .GenerateAsync(default!, default!, default)
+            .GenerateAsync(default!, default)
             .ReturnsForAnyArgs(
-                (Func<NSubstitute.Core.CallInfo, Task<GeneratedEmbeddings<Embedding<float>>>>)(
-                    _ =>
-                        Task.FromResult(
-                            new GeneratedEmbeddings<Embedding<float>>([
-                                new Embedding<float>(embeddingVector),
-                            ])
-                        )
+                (Func<NSubstitute.Core.CallInfo, Task<RecipeSearchEmbedding>>)(
+                    _ => Task.FromResult(new RecipeSearchEmbedding(embeddingVector, "text-embedding-3-small", 1536))
                 )
             );
 
@@ -123,20 +108,15 @@ public class RecipeServiceTests
     public async Task SearchRecipesAsync_DefaultLimitIs10()
     {
         var repository = Substitute.For<IRecipeRepository>();
-        var generator = Substitute.For<IEmbeddingGenerator<string, Embedding<float>>>();
+        var generator = Substitute.For<IRecipeSearchEmbeddingGenerator>();
 
         var embeddingVector = new float[1536];
 
         generator
-            .GenerateAsync(default!, default!, default)
+            .GenerateAsync(default!, default)
             .ReturnsForAnyArgs(
-                (Func<NSubstitute.Core.CallInfo, Task<GeneratedEmbeddings<Embedding<float>>>>)(
-                    _ =>
-                        Task.FromResult(
-                            new GeneratedEmbeddings<Embedding<float>>([
-                                new Embedding<float>(embeddingVector),
-                            ])
-                        )
+                (Func<NSubstitute.Core.CallInfo, Task<RecipeSearchEmbedding>>)(
+                    _ => Task.FromResult(new RecipeSearchEmbedding(embeddingVector, "text-embedding-3-small", 1536))
                 )
             );
 
