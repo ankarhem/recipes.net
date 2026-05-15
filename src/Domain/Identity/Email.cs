@@ -1,7 +1,14 @@
+using System.Text.RegularExpressions;
+
 namespace Domain.Identity;
 
 public sealed record Email
 {
+    private static readonly Regex EmailFormat = new(
+        @"^[^@\s]+@[^@\s]+\.[^@\s]+$",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant
+    );
+
     public string Value { get; }
 
     private Email(string value)
@@ -16,7 +23,14 @@ public sealed record Email
             throw new ArgumentException("Email must not be empty.", nameof(raw));
         }
 
-        return new Email(raw.Trim().ToLowerInvariant());
+        var normalized = raw.Trim().ToLowerInvariant();
+
+        if (!EmailFormat.IsMatch(normalized))
+        {
+            throw new ArgumentException($"Invalid email format: '{normalized}'.", nameof(raw));
+        }
+
+        return new Email(normalized);
     }
 
     public override string ToString() => Value;

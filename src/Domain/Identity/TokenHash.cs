@@ -19,5 +19,7 @@ public sealed record TokenHash
         return new TokenHash(hexHash);
     }
 
+    public static TokenHash FromPlain(string plainToken) => From(TokenHasher.Hash(plainToken));
+
     public override string ToString() => Value;
 }

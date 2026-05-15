@@ -17,6 +17,26 @@ public sealed record Recipe
         int? servingsCount
     )
     {
+        if (prepTime.HasValue && prepTime.Value < TimeSpan.Zero)
+        {
+            throw new ArgumentException("Prep time must not be negative.", nameof(prepTime));
+        }
+
+        if (cookTime.HasValue && cookTime.Value < TimeSpan.Zero)
+        {
+            throw new ArgumentException("Cook time must not be negative.", nameof(cookTime));
+        }
+
+        if (totalTime.HasValue && totalTime.Value < TimeSpan.Zero)
+        {
+            throw new ArgumentException("Total time must not be negative.", nameof(totalTime));
+        }
+
+        if (servingsCount.HasValue && servingsCount.Value < 0)
+        {
+            throw new ArgumentException("Servings count must not be negative.", nameof(servingsCount));
+        }
+
         return new Recipe
         {
             Id = Guid.NewGuid(),
