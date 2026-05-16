@@ -10,7 +10,7 @@ namespace Web.Controllers;
 [Route("/api/v1/favorites")]
 [Tags("Favorites")]
 [Authorize]
-public class FavoritesController(IRecipeFavoriteService favoriteService) : ControllerBase
+public class FavoritesController(IRecipeCollectionService collectionService) : ControllerBase
 {
     /// <summary>
     /// Toggle a recipe as favorite.
@@ -25,14 +25,14 @@ public class FavoritesController(IRecipeFavoriteService favoriteService) : Contr
     public async Task<IActionResult> Toggle(Guid recipeId, CancellationToken cancellationToken)
     {
         var userId = User.GetUserId();
-        var result = await favoriteService.ToggleFavoriteAsync(userId, recipeId, cancellationToken);
+        var result = await collectionService.ToggleFavoriteAsync(userId, recipeId, cancellationToken);
 
         return result switch
         {
-            ToggleRecipeFavoriteResult.Success s => Ok(
-                new ToggleFavoriteResponse { RecipeId = recipeId, IsFavorite = s.IsFavorite }
+            ToggleRecipeResult.Success s => Ok(
+                new ToggleFavoriteResponse { RecipeId = recipeId, IsFavorite = s.IsAdded }
             ),
-            ToggleRecipeFavoriteResult.RecipeNotFound => NotFound(new { error = "Recipe not found." }),
+            ToggleRecipeResult.RecipeNotFound => NotFound(new { error = "Recipe not found." }),
             _ => StatusCode(StatusCodes.Status500InternalServerError),
         };
     }
@@ -48,7 +48,7 @@ public class FavoritesController(IRecipeFavoriteService favoriteService) : Contr
     public async Task<IActionResult> List(CancellationToken cancellationToken)
     {
         var userId = User.GetUserId();
-        var recipeIds = await favoriteService.ListFavoriteRecipeIdsAsync(userId, cancellationToken);
+        var recipeIds = await collectionService.ListFavoriteRecipeIdsAsync(userId, cancellationToken);
 
         return Ok(new ListFavoritesResponse { RecipeIds = recipeIds });
     }

@@ -9,7 +9,7 @@ using Xunit;
 
 namespace App.UnitTests;
 
-public class RecipeFavoriteServiceTests
+public class RecipeCollectionServiceTests
 {
     [Fact]
     public async Task ToggleFavoriteAsync_UnknownRecipe_ReturnsRecipeNotFound()
@@ -24,7 +24,7 @@ public class RecipeFavoriteServiceTests
         recipeRepository
             .ExistsAsync(default, default)
             .ReturnsForAnyArgs((Func<CallInfo, Task<bool>>)(_ => Task.FromResult(false)));
-        var sut = new RecipeFavoriteService(
+        var sut = new RecipeCollectionService(
             collectionRepository,
             recipeRepository,
             unitOfWork,
@@ -33,10 +33,42 @@ public class RecipeFavoriteServiceTests
 
         var result = await sut.ToggleFavoriteAsync(userId, recipeId);
 
-        result.Should().BeOfType<ToggleRecipeFavoriteResult.RecipeNotFound>();
+        result.Should().BeOfType<ToggleRecipeResult.RecipeNotFound>();
         await collectionRepository
             .DidNotReceiveWithAnyArgs()
             .GetDefaultFavoritesAsync(default, default);
+        await collectionRepository.DidNotReceiveWithAnyArgs().SaveAsync(default!, default);
+        await unitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+    }
+
+    [Fact]
+    public async Task ToggleRecipeAsync_UnknownCollection_ReturnsCollectionNotFound()
+    {
+        var collectionRepository = Substitute.For<IRecipeCollectionRepository>();
+        var recipeRepository = Substitute.For<IRecipeRepository>();
+        var unitOfWork = Substitute.For<IUnitOfWork>();
+        var clock = Substitute.For<IClock>();
+        var collectionId = Guid.NewGuid();
+        var recipeId = Guid.NewGuid();
+
+        collectionRepository
+            .GetByIdAsync(default, default)
+            .ReturnsForAnyArgs(
+                (Func<CallInfo, Task<RecipeCollection?>>)(
+                    _ => Task.FromResult<RecipeCollection?>(null)
+                )
+            );
+        var sut = new RecipeCollectionService(
+            collectionRepository,
+            recipeRepository,
+            unitOfWork,
+            clock
+        );
+
+        var result = await sut.ToggleRecipeAsync(collectionId, recipeId);
+
+        result.Should().BeOfType<ToggleRecipeResult.CollectionNotFound>();
+        await recipeRepository.DidNotReceiveWithAnyArgs().ExistsAsync(default, default);
         await collectionRepository.DidNotReceiveWithAnyArgs().SaveAsync(default!, default);
         await unitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
     }
@@ -65,7 +97,7 @@ public class RecipeFavoriteServiceTests
             );
         collectionRepository.SaveAsync(default!, default).ReturnsForAnyArgs(Task.CompletedTask);
         unitOfWork.SaveChangesAsync(default).ReturnsForAnyArgs(Task.CompletedTask);
-        var sut = new RecipeFavoriteService(
+        var sut = new RecipeCollectionService(
             collectionRepository,
             recipeRepository,
             unitOfWork,
@@ -74,8 +106,8 @@ public class RecipeFavoriteServiceTests
 
         var result = await sut.ToggleFavoriteAsync(userId, recipeId);
 
-        var success = result.Should().BeOfType<ToggleRecipeFavoriteResult.Success>().Subject;
-        success.IsFavorite.Should().BeTrue();
+        var success = result.Should().BeOfType<ToggleRecipeResult.Success>().Subject;
+        success.IsAdded.Should().BeTrue();
         await collectionRepository.Received(1).SaveAsync(
             Arg.Is<RecipeCollection>(c =>
                 c.OwnerId.Value == userId
@@ -113,7 +145,7 @@ public class RecipeFavoriteServiceTests
             );
         collectionRepository.SaveAsync(default!, default).ReturnsForAnyArgs(Task.CompletedTask);
         unitOfWork.SaveChangesAsync(default).ReturnsForAnyArgs(Task.CompletedTask);
-        var sut = new RecipeFavoriteService(
+        var sut = new RecipeCollectionService(
             collectionRepository,
             recipeRepository,
             unitOfWork,
@@ -122,8 +154,8 @@ public class RecipeFavoriteServiceTests
 
         var result = await sut.ToggleFavoriteAsync(userId, recipeId);
 
-        var success = result.Should().BeOfType<ToggleRecipeFavoriteResult.Success>().Subject;
-        success.IsFavorite.Should().BeFalse();
+        var success = result.Should().BeOfType<ToggleRecipeResult.Success>().Subject;
+        success.IsAdded.Should().BeFalse();
         await collectionRepository.Received(1).SaveAsync(
             Arg.Is<RecipeCollection>(c => !c.ContainsRecipe(new RecipeId(recipeId))),
             Arg.Any<CancellationToken>()
@@ -153,7 +185,7 @@ public class RecipeFavoriteServiceTests
                     _ => Task.FromResult<RecipeCollection?>(collection)
                 )
             );
-        var sut = new RecipeFavoriteService(
+        var sut = new RecipeCollectionService(
             collectionRepository,
             recipeRepository,
             unitOfWork,

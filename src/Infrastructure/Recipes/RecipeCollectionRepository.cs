@@ -1,4 +1,3 @@
-using App.Recipes;
 using App.Recipes.Ports;
 using Domain.Recipes;
 using Infrastructure;
@@ -8,6 +7,16 @@ namespace Infrastructure.Recipes;
 
 public sealed class RecipeCollectionRepository(AppDbContext db) : IRecipeCollectionRepository
 {
+    public async Task<RecipeCollection?> GetByIdAsync(
+        RecipeCollectionId id,
+        CancellationToken cancellationToken = default
+    )
+    {
+        return await db.RecipeCollections
+            .Include(c => c.Items)
+            .SingleOrDefaultAsync(c => c.Id == id, cancellationToken);
+    }
+
     public async Task<RecipeCollection?> GetDefaultFavoritesAsync(
         RecipeCollectionOwnerId ownerId,
         CancellationToken cancellationToken = default

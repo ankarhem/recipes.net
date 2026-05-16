@@ -342,7 +342,7 @@ builder.Services.AddSingleton<JwtAccessTokenOptions>(sp =>
 });
 builder.Services.AddScoped<IAccessTokenService, JwtAccessTokenService>();
 builder.Services.AddScoped<IRecipeCollectionRepository, RecipeCollectionRepository>();
-builder.Services.AddScoped<IRecipeFavoriteService, RecipeFavoriteService>();
+builder.Services.AddScoped<IRecipeCollectionService, RecipeCollectionService>();
 
 builder.Services.AddSingleton<IEmbeddingGenerator<string, Embedding<float>>>(sp =>
 {

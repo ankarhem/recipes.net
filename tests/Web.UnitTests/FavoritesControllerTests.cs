@@ -13,7 +13,7 @@ namespace Web.Tests;
 
 public class FavoritesControllerTests
 {
-    private readonly IRecipeFavoriteService _service = Substitute.For<IRecipeFavoriteService>();
+    private readonly IRecipeCollectionService _service = Substitute.For<IRecipeCollectionService>();
 
     [Fact]
     public async Task Toggle_Success_Returns200WithFavoriteState()
@@ -23,10 +23,10 @@ public class FavoritesControllerTests
         _service
             .ToggleFavoriteAsync(default, default, default)
             .ReturnsForAnyArgs(
-                (Func<CallInfo, Task<ToggleRecipeFavoriteResult>>)(
+                (Func<CallInfo, Task<ToggleRecipeResult>>)(
                     _ =>
-                        Task.FromResult<ToggleRecipeFavoriteResult>(
-                            new ToggleRecipeFavoriteResult.Success(true)
+                        Task.FromResult<ToggleRecipeResult>(
+                            new ToggleRecipeResult.Success(true)
                         )
                 )
             );
@@ -50,10 +50,10 @@ public class FavoritesControllerTests
         _service
             .ToggleFavoriteAsync(default, default, default)
             .ReturnsForAnyArgs(
-                (Func<CallInfo, Task<ToggleRecipeFavoriteResult>>)(
+                (Func<CallInfo, Task<ToggleRecipeResult>>)(
                     _ =>
-                        Task.FromResult<ToggleRecipeFavoriteResult>(
-                            new ToggleRecipeFavoriteResult.RecipeNotFound()
+                        Task.FromResult<ToggleRecipeResult>(
+                            new ToggleRecipeResult.RecipeNotFound()
                         )
                 )
             );
