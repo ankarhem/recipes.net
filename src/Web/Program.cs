@@ -272,7 +272,7 @@ builder.Services.AddTemporalClient(options =>
     options.Interceptors = new[] { new TracingInterceptor() };
 });
 
-builder.Services.AddDbContext<RecipesDbContext>(options =>
+builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Recipes"), o => o.UseVector())
 );
 
@@ -373,7 +373,7 @@ var app = builder.Build();
 if (app.Environment.IsProduction())
 {
     using var scope = app.Services.CreateScope();
-    await scope.ServiceProvider.GetRequiredService<RecipesDbContext>().Database.MigrateAsync();
+    await scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.MigrateAsync();
 
     var keyFiles = Directory.Exists(dataProtectionKeyPath)
         ? Directory.GetFiles(dataProtectionKeyPath, "*.xml")

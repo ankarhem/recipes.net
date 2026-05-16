@@ -1,12 +1,13 @@
 using App.Recipes;
 using Domain;
 using Domain.Recipes;
+using Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Pgvector;
 
 namespace Infrastructure.Recipes;
 
-public sealed class RecipeRepository(RecipesDbContext db, IClock clock) : IRecipeRepository
+public sealed class RecipeRepository(AppDbContext db, IClock clock) : IRecipeRepository
 {
     public async Task<Recipe?> GetByIdAsync(
         RecipeId id,

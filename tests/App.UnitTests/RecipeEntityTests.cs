@@ -1,6 +1,6 @@
 using AwesomeAssertions;
 using Domain.Recipes;
-using Infrastructure.Recipes;
+using Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Pgvector.EntityFrameworkCore;
 using Xunit;
@@ -10,16 +10,16 @@ namespace App.Tests;
 public class RecipeConfigurationTests
 {
     [Fact]
-    public void RecipesDbContext_ConfiguresRecipeWithOwnedCollections()
+    public void AppDbContext_ConfiguresRecipeWithOwnedCollections()
     {
-        var options = new DbContextOptionsBuilder<RecipesDbContext>()
+        var options = new DbContextOptionsBuilder<AppDbContext>()
             .UseNpgsql(
                 "Host=localhost;Database=recipes_test;Username=test;Password=test",
                 npgsql => npgsql.UseVector()
             )
             .Options;
 
-        using var db = new RecipesDbContext(options);
+        using var db = new AppDbContext(options);
 
         var recipeEntity = db.Model.FindEntityType(typeof(Recipe))!;
         recipeEntity.Should().NotBeNull();

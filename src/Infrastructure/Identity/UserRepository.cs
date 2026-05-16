@@ -1,11 +1,10 @@
 using App.Identity;
 using Domain.Identity;
-using Infrastructure.Recipes;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Identity;
 
-public sealed class UserRepository(RecipesDbContext db) : IUserRepository
+public sealed class UserRepository(AppDbContext db) : IUserRepository
 {
     public Task<User?> GetByIdAsync(UserId id, CancellationToken cancellationToken = default) =>
         QueryWithAggregate().SingleOrDefaultAsync(u => u.Id == id, cancellationToken);

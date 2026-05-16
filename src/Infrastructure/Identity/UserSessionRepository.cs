@@ -1,12 +1,11 @@
 using App.Identity;
 using Domain;
 using Domain.Identity;
-using Infrastructure.Recipes;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Identity;
 
-public sealed class UserSessionRepository(RecipesDbContext db, IClock clock) : IUserSessionRepository
+public sealed class UserSessionRepository(AppDbContext db, IClock clock) : IUserSessionRepository
 {
     public Task<UserSession?> GetByTokenHashAsync(
         TokenHash hash,

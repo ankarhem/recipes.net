@@ -1,11 +1,12 @@
 using App.Recipes;
 using Domain;
 using Domain.Recipes;
+using Infrastructure;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Recipes;
 
-public sealed class RecipeEmbeddingRepository(RecipesDbContext db, IClock clock) : IRecipeEmbeddingRepository
+public sealed class RecipeEmbeddingRepository(AppDbContext db, IClock clock) : IRecipeEmbeddingRepository
 {
     public Task<bool> ExistsAsync(
         Guid recipeId,

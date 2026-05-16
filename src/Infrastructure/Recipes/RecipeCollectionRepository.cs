@@ -1,10 +1,11 @@
 using App.Recipes;
 using Domain.Recipes;
+using Infrastructure;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Recipes;
 
-public sealed class RecipeCollectionRepository(RecipesDbContext db) : IRecipeCollectionRepository
+public sealed class RecipeCollectionRepository(AppDbContext db) : IRecipeCollectionRepository
 {
     public async Task<RecipeCollection?> GetDefaultFavoritesAsync(
         RecipeCollectionOwnerId ownerId,

@@ -2,20 +2,20 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Pgvector.EntityFrameworkCore;
 
-namespace Infrastructure.Recipes;
+namespace Infrastructure;
 
-public sealed class RecipesDbContextFactory : IDesignTimeDbContextFactory<RecipesDbContext>
+public sealed class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbContext>
 {
-    public RecipesDbContext CreateDbContext(string[] args)
+    public AppDbContext CreateDbContext(string[] args)
     {
         var connectionString =
             Environment.GetEnvironmentVariable("ConnectionStrings__Recipes")
             ?? "Host=localhost;Database=recipes";
 
-        var options = new DbContextOptionsBuilder<RecipesDbContext>()
+        var options = new DbContextOptionsBuilder<AppDbContext>()
             .UseNpgsql(connectionString, o => o.UseVector())
             .Options;
 
-        return new RecipesDbContext(options);
+        return new AppDbContext(options);
     }
 }

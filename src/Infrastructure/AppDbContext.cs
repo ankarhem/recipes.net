@@ -3,9 +3,9 @@ using Domain.Recipes;
 using Microsoft.EntityFrameworkCore;
 using Pgvector.EntityFrameworkCore;
 
-namespace Infrastructure.Recipes;
+namespace Infrastructure;
 
-public sealed class RecipesDbContext(DbContextOptions<RecipesDbContext> options)
+public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     : DbContext(options)
 {
     public DbSet<Recipe> Recipes => Set<Recipe>();
@@ -22,6 +22,6 @@ public sealed class RecipesDbContext(DbContextOptions<RecipesDbContext> options)
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasPostgresExtension("vector");
-        modelBuilder.ApplyConfigurationsFromAssembly(typeof(RecipesDbContext).Assembly);
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
     }
 }

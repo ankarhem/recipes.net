@@ -1,12 +1,10 @@
 using App;
-using App.Identity;
-using Infrastructure.Recipes;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Infrastructure;
 
-public sealed class EfUnitOfWork(RecipesDbContext db) : IUnitOfWork
+public sealed class EfUnitOfWork(AppDbContext db) : IUnitOfWork
 {
     public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
     {
