@@ -1,5 +1,6 @@
 using App;
 using App.Identity;
+using App.Identity.Ports;
 using AwesomeAssertions;
 using Domain;
 using Domain.Identity;

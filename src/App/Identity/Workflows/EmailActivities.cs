@@ -1,6 +1,7 @@
+using App.Identity.Ports;
 using Temporalio.Activities;
 
-namespace App.Identity;
+namespace App.Identity.Workflows;
 
 public sealed class EmailActivities(IEmailService emailService)
 {

@@ -1,6 +1,6 @@
 using Domain.Identity;
 
-namespace App.Identity;
+namespace App.Identity.Ports;
 
 public interface IUserSessionRepository
 {

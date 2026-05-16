@@ -1,9 +1,9 @@
 using Temporalio.Workflows;
 
-namespace App.Identity;
+namespace App.Identity.Workflows;
 
 [Workflow]
-public class EmailVerificationWorkflow
+public class PasswordResetWorkflow
 {
     private static readonly TimeSpan CleanupDelay = TimeSpan.FromDays(30);
 
@@ -11,7 +11,7 @@ public class EmailVerificationWorkflow
     public async Task RunAsync(Guid userId, string email, string token)
     {
         await Workflow.ExecuteActivityAsync(
-            (EmailActivities a) => a.SendVerificationEmailAsync(email, token),
+            (EmailActivities a) => a.SendPasswordResetEmailAsync(email, token),
             new()
             {
                 StartToCloseTimeout = TimeSpan.FromSeconds(30),
@@ -28,7 +28,7 @@ public class EmailVerificationWorkflow
         await Workflow.DelayAsync(CleanupDelay);
 
         await Workflow.ExecuteActivityAsync(
-            (TokenCleanupActivities a) => a.DeleteEmailVerificationTokenAsync(token),
+            (TokenCleanupActivities a) => a.DeletePasswordResetTokenAsync(token),
             new()
             {
                 StartToCloseTimeout = TimeSpan.FromSeconds(10),

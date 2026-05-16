@@ -1,7 +1,7 @@
 using Domain.Identity;
 using Temporalio.Client;
 
-namespace App.Identity;
+namespace App.Identity.Workflows;
 
 public interface IEmailWorkflowStarter
 {

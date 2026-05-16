@@ -1,8 +1,9 @@
+using App.Identity.Ports;
 using Domain;
 using Domain.Identity;
 using Temporalio.Activities;
 
-namespace App.Identity;
+namespace App.Identity.Workflows;
 
 public sealed class TokenCleanupActivities(IUserRepository users, IUnitOfWork unitOfWork, IClock clock)
 {
