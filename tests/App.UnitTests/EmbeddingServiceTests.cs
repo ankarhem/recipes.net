@@ -10,16 +10,20 @@ namespace App.UnitTests;
 
 public class RecipeEmbeddingServiceTests
 {
-    private static readonly Recipe SampleRecipe = new()
-    {
-        Id = RecipeId.New(),
-        Name = "Tomato Soup",
-        Description = "A simple soup",
-        ImageUrls = Array.Empty<string>(),
-        SuitableForDiets = [],
-        Ingredients = [new RecipeIngredient { Text = "2 tomatoes" }],
-        Instructions = [new RecipeInstruction { Position = 1, Text = "Chop tomatoes" }],
-    };
+    private static readonly Recipe SampleRecipe = Recipe.FromImport(
+        "Tomato Soup",
+        "A simple soup",
+        [],
+        ["2 tomatoes"],
+        ["Chop tomatoes"],
+        null,
+        null,
+        [],
+        null,
+        null,
+        null,
+        null
+    );
 
     private static readonly string ExpectedCanonicalText = new RecipeEmbeddingTextBuilder().Build(
         SampleRecipe

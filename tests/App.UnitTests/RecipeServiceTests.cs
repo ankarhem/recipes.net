@@ -8,19 +8,20 @@ namespace App.UnitTests;
 
 public class RecipeServiceTests
 {
-    private static readonly Recipe SampleRecipe = new()
-    {
-        Id = RecipeId.New(),
-        Name = "Pasta Carbonara",
-        Description = "A classic Italian dish",
-        ImageUrls = Array.Empty<string>(),
-        SuitableForDiets = [],
-        Ingredients = [new RecipeIngredient { Text = "200g spaghetti" }],
-        Instructions =
-        [
-            new RecipeInstruction { Position = 1, Text = "Cook the pasta" },
-        ],
-    };
+    private static readonly Recipe SampleRecipe = Recipe.FromImport(
+        "Pasta Carbonara",
+        "A classic Italian dish",
+        [],
+        ["200g spaghetti"],
+        ["Cook the pasta"],
+        null,
+        null,
+        [],
+        null,
+        null,
+        null,
+        null
+    );
 
     [Fact]
     public async Task SearchRecipesAsync_GeneratesEmbeddingAndCallsRepository()

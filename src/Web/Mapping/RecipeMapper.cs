@@ -9,7 +9,7 @@ public static class RecipeMapper
         new()
         {
             Id = recipe.Id.Value,
-            Name = recipe.Name ?? "Untitled",
+            Name = recipe.DisplayName,
             Description = recipe.Description,
             ImageUrls = recipe.ImageUrls,
             Category = recipe.Category,

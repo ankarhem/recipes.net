@@ -11,24 +11,20 @@ public class RecipeEmbeddingTextBuilderTests
     [Fact]
     public void Build_WithFullRecipe_ProducesCanonicalText()
     {
-        var recipe = new Recipe
-        {
-            Id = RecipeId.New(),
-            Name = "Tomato Soup",
-            Description = "A simple tomato soup",
-            ImageUrls = Array.Empty<string>(),
-            SuitableForDiets = [],
-            Ingredients = new[]
-            {
-                new RecipeIngredient { Text = "4 tomatoes" },
-                new RecipeIngredient { Text = "1 cup stock" },
-            },
-            Instructions = new[]
-            {
-                new RecipeInstruction { Position = 1, Text = "Chop tomatoes" },
-                new RecipeInstruction { Position = 2, Text = "Simmer soup" },
-            },
-        };
+        var recipe = Recipe.FromImport(
+            "Tomato Soup",
+            "A simple tomato soup",
+            [],
+            ["4 tomatoes", "1 cup stock"],
+            ["Chop tomatoes", "Simmer soup"],
+            null,
+            null,
+            [],
+            null,
+            null,
+            null,
+            null
+        );
 
         var result = _builder.Build(recipe);
 
@@ -51,7 +47,7 @@ public class RecipeEmbeddingTextBuilderTests
     [Fact]
     public void Build_WithNullName_OmitsNameLine()
     {
-        var recipe = MinimalRecipe() with { Description = "A simple soup" };
+        var recipe = MinimalRecipe(description: "A simple soup");
 
         var result = _builder.Build(recipe);
 
@@ -61,7 +57,7 @@ public class RecipeEmbeddingTextBuilderTests
     [Fact]
     public void Build_WithNullDescription_OmitsDescriptionLine()
     {
-        var recipe = MinimalRecipe() with { Name = "Tomato Soup" };
+        var recipe = MinimalRecipe(name: "Tomato Soup");
 
         var result = _builder.Build(recipe);
 
@@ -71,15 +67,11 @@ public class RecipeEmbeddingTextBuilderTests
     [Fact]
     public void Build_WithEmptyIngredients_OmitsIngredientsSection()
     {
-        var recipe = MinimalRecipe() with
-        {
-            Name = "Tomato Soup",
-            Description = "A simple tomato soup",
-            Instructions = new[]
-            {
-                new RecipeInstruction { Position = 1, Text = "Simmer soup" },
-            },
-        };
+        var recipe = MinimalRecipe(
+            name: "Tomato Soup",
+            description: "A simple tomato soup",
+            instructionTexts: ["Simmer soup"]
+        );
 
         var result = _builder.Build(recipe);
 
@@ -98,12 +90,11 @@ public class RecipeEmbeddingTextBuilderTests
     [Fact]
     public void Build_WithEmptyInstructions_OmitsInstructionsSection()
     {
-        var recipe = MinimalRecipe() with
-        {
-            Name = "Tomato Soup",
-            Description = "A simple tomato soup",
-            Ingredients = new[] { new RecipeIngredient { Text = "4 tomatoes" } },
-        };
+        var recipe = MinimalRecipe(
+            name: "Tomato Soup",
+            description: "A simple tomato soup",
+            ingredientTexts: ["4 tomatoes"]
+        );
 
         var result = _builder.Build(recipe);
 
@@ -132,24 +123,20 @@ public class RecipeEmbeddingTextBuilderTests
     [Fact]
     public void Build_IsDeterministic_SameInputSameOutput()
     {
-        var recipe = new Recipe
-        {
-            Id = RecipeId.New(),
-            Name = "Tomato Soup",
-            Description = "A simple tomato soup",
-            ImageUrls = Array.Empty<string>(),
-            SuitableForDiets = [],
-            Ingredients = new[]
-            {
-                new RecipeIngredient { Text = "4 tomatoes" },
-                new RecipeIngredient { Text = "1 cup stock" },
-            },
-            Instructions = new[]
-            {
-                new RecipeInstruction { Position = 1, Text = "Chop tomatoes" },
-                new RecipeInstruction { Position = 2, Text = "Simmer soup" },
-            },
-        };
+        var recipe = Recipe.FromImport(
+            "Tomato Soup",
+            "A simple tomato soup",
+            [],
+            ["4 tomatoes", "1 cup stock"],
+            ["Chop tomatoes", "Simmer soup"],
+            null,
+            null,
+            [],
+            null,
+            null,
+            null,
+            null
+        );
 
         var first = _builder.Build(recipe);
         var second = _builder.Build(recipe);
@@ -165,15 +152,26 @@ public class RecipeEmbeddingTextBuilderTests
         result.Should().Be("2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824");
     }
 
-    private static Recipe MinimalRecipe() =>
-        new()
-        {
-            Id = RecipeId.New(),
-            ImageUrls = Array.Empty<string>(),
-            SuitableForDiets = [],
-            Ingredients = Array.Empty<RecipeIngredient>(),
-            Instructions = Array.Empty<RecipeInstruction>(),
-        };
+    private static Recipe MinimalRecipe(
+        string? name = null,
+        string? description = null,
+        IReadOnlyList<string>? ingredientTexts = null,
+        IReadOnlyList<string>? instructionTexts = null
+    ) =>
+        Recipe.FromImport(
+            name,
+            description,
+            [],
+            ingredientTexts ?? [],
+            instructionTexts ?? [],
+            null,
+            null,
+            [],
+            null,
+            null,
+            null,
+            null
+        );
 
     private static string JoinLines(params string[] lines) => string.Join("\n", lines);
 }

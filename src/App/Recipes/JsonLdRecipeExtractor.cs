@@ -6,8 +6,6 @@ namespace App.Recipes;
 
 public sealed class JsonLdRecipeExtractor(ILogger<JsonLdRecipeExtractor> logger) : IRecipeExtractor
 {
-    private const int MaxCategoryCuisineLength = 200;
-
     public RecipeExtractionResult? TryExtract(IEnumerable<string> jsonLdScripts)
     {
         foreach (var script in jsonLdScripts)
@@ -129,9 +127,7 @@ public sealed class JsonLdRecipeExtractor(ILogger<JsonLdRecipeExtractor> logger)
         {
             return null;
         }
-        return trimmed.Length > MaxCategoryCuisineLength
-            ? trimmed[..MaxCategoryCuisineLength]
-            : trimmed;
+        return trimmed;
     }
 
     private static IReadOnlyList<DietType> ExtractSuitableForDiets(

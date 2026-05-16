@@ -25,23 +25,20 @@ public sealed class RecipeEntity
     public List<RecipeInstructionEntity> InstructionEntities { get; set; } = [];
 
     public Recipe ToDomain() =>
-        new()
-        {
-            Id = new RecipeId(Id),
-            Name = Name,
-            Description = Description,
-            ImageUrls = JsonSerializer.Deserialize<List<string>>(ImageUrlsJson) ?? [],
-            Category = Category,
-            Cuisine = Cuisine,
-            SuitableForDiets = SuitableForDiets,
-            PrepTime = PrepTime,
-            CookTime = CookTime,
-            TotalTime = TotalTime,
-            ServingsCount = ServingsCount,
-            Ingredients = IngredientEntities
-                .Select(e => new RecipeIngredient { Text = e.Text })
-                .ToList(),
-            Instructions = InstructionEntities
+        Recipe.Rehydrate(
+            new RecipeId(Id),
+            Name,
+            Description,
+            JsonSerializer.Deserialize<List<string>>(ImageUrlsJson) ?? [],
+            Category,
+            Cuisine,
+            SuitableForDiets,
+            PrepTime,
+            CookTime,
+            TotalTime,
+            ServingsCount,
+            IngredientEntities.Select(e => new RecipeIngredient { Text = e.Text }).ToList(),
+            InstructionEntities
                 .OrderBy(e => e.Position)
                 .Select(e => new RecipeInstruction
                 {
@@ -49,8 +46,8 @@ public sealed class RecipeEntity
                     Text = e.Text,
                     Name = e.Name,
                 })
-                .ToList(),
-        };
+                .ToList()
+        );
 
     public static RecipeEntity FromImport(
         Recipe recipe,
@@ -63,7 +60,7 @@ public sealed class RecipeEntity
         {
             Id = recipe.Id.Value,
             Url = sourceUrl,
-            Name = recipe.Name ?? "Untitled",
+            Name = recipe.DisplayName,
             Description = recipe.Description,
             ImageUrlsJson = JsonSerializer.Serialize(recipe.ImageUrls),
             Category = recipe.Category,

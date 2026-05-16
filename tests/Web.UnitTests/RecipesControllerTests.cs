@@ -12,26 +12,7 @@ public class RecipesControllerTests
 {
     private readonly IRecipeService _service = Substitute.For<IRecipeService>();
 
-    private static readonly Domain.Recipes.Recipe TestRecipe = new()
-    {
-        Id = Domain.Recipes.RecipeId.New(),
-        Name = "Test Recipe",
-        Description = "A test",
-        ImageUrls = ["https://example.com/image.jpg"],
-        Category = "Dessert",
-        Cuisine = "Italian",
-        SuitableForDiets = [Domain.Recipes.DietType.Vegetarian],
-        PrepTime = TimeSpan.FromMinutes(15),
-        CookTime = TimeSpan.FromMinutes(45),
-        TotalTime = TimeSpan.FromHours(1),
-        ServingsCount = 4,
-        Ingredients = [new Domain.Recipes.RecipeIngredient { Text = "1 cup flour" }],
-        Instructions =
-        [
-            new Domain.Recipes.RecipeInstruction { Position = 1, Text = "Mix dry ingredients" },
-            new Domain.Recipes.RecipeInstruction { Position = 2, Text = "Add wet ingredients" },
-        ],
-    };
+    private static readonly Domain.Recipes.Recipe TestRecipe = CreateTestRecipe("Test Recipe");
 
     [Fact]
     public async Task Get_ExistingId_Returns200WithRecipe()
@@ -91,7 +72,7 @@ public class RecipesControllerTests
     [Fact]
     public async Task Get_NullName_ReturnsUntitled()
     {
-        var recipe = TestRecipe with { Name = null };
+        var recipe = CreateTestRecipe(null);
         _service
             .GetRecipeAsync(recipe.Id.Value, Arg.Any<CancellationToken>())
             .Returns(
@@ -107,6 +88,22 @@ public class RecipesControllerTests
         var response = ok.Value.Should().BeOfType<GetRecipeResponse>().Subject;
         response.Name.Should().Be("Untitled");
     }
+
+    private static Domain.Recipes.Recipe CreateTestRecipe(string? name) =>
+        Domain.Recipes.Recipe.FromImport(
+            name,
+            "A test",
+            ["https://example.com/image.jpg"],
+            ["1 cup flour"],
+            ["Mix dry ingredients", "Add wet ingredients"],
+            "Dessert",
+            "Italian",
+            [Domain.Recipes.DietType.Vegetarian],
+            TimeSpan.FromMinutes(15),
+            TimeSpan.FromMinutes(45),
+            TimeSpan.FromHours(1),
+            4
+        );
 
     [Fact]
     public async Task Get_ForwardsCancellationToken()

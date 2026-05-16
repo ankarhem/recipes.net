@@ -151,15 +151,21 @@ public class CrawlerActivitiesTests
         var repository = Substitute.For<IRecipeRepository>();
         var unitOfWork = Substitute.For<IUnitOfWork>();
         var recipeId = Domain.Recipes.RecipeId.New();
-        var recipe = new Domain.Recipes.Recipe
-        {
-            Id = recipeId,
-            Name = "Cake",
-            ImageUrls = [],
-            SuitableForDiets = [],
-            Ingredients = [],
-            Instructions = [],
-        };
+        var recipe = Domain.Recipes.Recipe.Rehydrate(
+            recipeId,
+            "Cake",
+            null,
+            [],
+            null,
+            null,
+            [],
+            null,
+            null,
+            null,
+            null,
+            [],
+            []
+        );
         repository
             .SaveImportedAsync(default!, default!, default!, default)
             .ReturnsForAnyArgs(recipeId);
