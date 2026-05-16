@@ -1,4 +1,4 @@
-namespace App.Recipes;
+namespace App.Recipes.Ports;
 
 public readonly record struct RecipeSearchEmbedding(
     ReadOnlyMemory<float> Vector,

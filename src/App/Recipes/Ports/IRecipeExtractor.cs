@@ -1,6 +1,6 @@
 using Domain.Recipes;
 
-namespace App.Recipes;
+namespace App.Recipes.Ports;
 
 public interface IRecipeExtractor
 {
