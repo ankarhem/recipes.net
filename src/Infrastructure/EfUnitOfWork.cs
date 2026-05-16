@@ -4,7 +4,7 @@ using Infrastructure.Recipes;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 
-namespace Infrastructure.Identity;
+namespace Infrastructure;
 
 public sealed class EfUnitOfWork(RecipesDbContext db) : IUnitOfWork
 {

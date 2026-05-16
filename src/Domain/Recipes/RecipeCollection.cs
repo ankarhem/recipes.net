@@ -6,6 +6,8 @@ public sealed class RecipeCollection
 
     private readonly List<RecipeCollectionItem> _items;
 
+    private RecipeCollection() { }
+
     private RecipeCollection(
         RecipeCollectionId id,
         RecipeCollectionOwnerId ownerId,

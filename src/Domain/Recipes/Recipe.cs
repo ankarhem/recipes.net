@@ -9,6 +9,8 @@ public sealed class Recipe
     private readonly List<RecipeIngredient> _ingredients;
     private readonly List<RecipeInstruction> _instructions;
 
+    private Recipe() { }
+
     private Recipe(
         RecipeId id,
         string? name,

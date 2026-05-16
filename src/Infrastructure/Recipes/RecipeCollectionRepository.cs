@@ -11,14 +11,12 @@ public sealed class RecipeCollectionRepository(RecipesDbContext db) : IRecipeCol
         CancellationToken cancellationToken = default
     )
     {
-        var entity = await db.RecipeCollections
+        return await db.RecipeCollections
             .Include(c => c.Items)
             .SingleOrDefaultAsync(
-                c => c.OwnerUserId == ownerId.Value && c.Kind == RecipeCollectionKind.Favorites,
+                c => c.OwnerId == ownerId && c.Kind == RecipeCollectionKind.Favorites,
                 cancellationToken
             );
-
-        return entity?.ToDomain();
     }
 
     public async Task SaveAsync(
@@ -26,19 +24,18 @@ public sealed class RecipeCollectionRepository(RecipesDbContext db) : IRecipeCol
         CancellationToken cancellationToken = default
     )
     {
-        var entity = await db.RecipeCollections
-            .Include(c => c.Items)
-            .SingleOrDefaultAsync(c => c.Id == collection.Id.Value, cancellationToken);
-
-        if (entity is null)
+        if (db.Entry(collection).State is not EntityState.Detached)
         {
-            await db.RecipeCollections.AddAsync(
-                RecipeCollectionEntity.FromDomain(collection),
-                cancellationToken
-            );
             return;
         }
 
-        entity.UpdateFromDomain(collection);
+        var existing = await db.RecipeCollections
+            .Include(c => c.Items)
+            .SingleOrDefaultAsync(c => c.Id == collection.Id, cancellationToken);
+
+        if (existing is null)
+        {
+            await db.RecipeCollections.AddAsync(collection, cancellationToken);
+        }
     }
 }

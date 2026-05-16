@@ -1,7 +1,7 @@
 using App.Recipes;
 using Domain;
+using Domain.Recipes;
 using Microsoft.EntityFrameworkCore;
-using Pgvector;
 
 namespace Infrastructure.Recipes;
 
@@ -13,15 +13,19 @@ public sealed class RecipeEmbeddingRepository(RecipesDbContext db, IClock clock)
         int dimensions,
         string inputHash,
         CancellationToken cancellationToken = default
-    ) =>
-        db.RecipeEmbeddings.AnyAsync(
+    )
+    {
+        var id = new RecipeId(recipeId);
+
+        return db.RecipeEmbeddings.AnyAsync(
             e =>
-                e.RecipeId == recipeId
+                e.RecipeId == id
                 && e.Model == model
                 && e.Dimensions == dimensions
                 && e.InputHash == inputHash,
             cancellationToken
         );
+    }
 
     public async Task EnsureEmbeddingAsync(
         Guid recipeId,
@@ -32,9 +36,11 @@ public sealed class RecipeEmbeddingRepository(RecipesDbContext db, IClock clock)
         CancellationToken cancellationToken = default
     )
     {
+        var id = new RecipeId(recipeId);
+
         var existing = await db.RecipeEmbeddings.FirstOrDefaultAsync(
             e =>
-                e.RecipeId == recipeId
+                e.RecipeId == id
                 && e.Model == model
                 && e.Dimensions == dimensions
                 && e.InputHash == inputHash,
@@ -46,19 +52,8 @@ public sealed class RecipeEmbeddingRepository(RecipesDbContext db, IClock clock)
             return;
         }
 
-        var now = clock.UtcNow;
-        var entity = new RecipeEmbeddingEntity
-        {
-            Id = Guid.NewGuid(),
-            RecipeId = recipeId,
-            Model = model,
-            Dimensions = dimensions,
-            InputHash = inputHash,
-            Embedding = new Vector(embedding),
-            CreatedAt = now,
-            UpdatedAt = now,
-        };
-
-        db.RecipeEmbeddings.Add(entity);
+        db.RecipeEmbeddings.Add(
+            RecipeEmbedding.Create(id, model, dimensions, inputHash, embedding, clock)
+        );
     }
 }

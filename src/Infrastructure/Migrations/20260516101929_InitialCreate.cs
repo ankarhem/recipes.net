@@ -20,7 +20,7 @@ namespace Infrastructure.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    OwnerUserId = table.Column<Guid>(type: "uuid", nullable: false),
+                    OwnerId = table.Column<Guid>(type: "uuid", nullable: false),
                     Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
                     Kind = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
                     Visibility = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
@@ -37,10 +37,9 @@ namespace Infrastructure.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    Url = table.Column<string>(type: "text", nullable: false),
                     Name = table.Column<string>(type: "text", nullable: false),
                     Description = table.Column<string>(type: "text", nullable: true),
-                    ImageUrlsJson = table.Column<string>(type: "jsonb", nullable: false),
+                    ImageUrls = table.Column<string>(type: "jsonb", nullable: false),
                     Category = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
                     Cuisine = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
                     SuitableForDiets = table.Column<string[]>(type: "text[]", nullable: false, defaultValueSql: "ARRAY[]::text[]"),
@@ -48,9 +47,10 @@ namespace Infrastructure.Migrations
                     CookTime = table.Column<TimeSpan>(type: "interval", nullable: true),
                     TotalTime = table.Column<TimeSpan>(type: "interval", nullable: true),
                     ServingsCount = table.Column<int>(type: "integer", nullable: true),
-                    JsonLd = table.Column<string>(type: "jsonb", nullable: false),
                     CreatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    UpdatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false)
+                    JsonLd = table.Column<string>(type: "jsonb", nullable: false),
+                    UpdatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    Url = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -79,10 +79,10 @@ namespace Infrastructure.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    CollectionId = table.Column<Guid>(type: "uuid", nullable: false),
                     RecipeId = table.Column<Guid>(type: "uuid", nullable: false),
                     AddedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    Position = table.Column<int>(type: "integer", nullable: false)
+                    Position = table.Column<int>(type: "integer", nullable: false),
+                    CollectionId = table.Column<Guid>(type: "uuid", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -130,8 +130,8 @@ namespace Infrastructure.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    RecipeId = table.Column<Guid>(type: "uuid", nullable: false),
-                    Text = table.Column<string>(type: "text", nullable: false)
+                    Text = table.Column<string>(type: "text", nullable: false),
+                    RecipeId = table.Column<Guid>(type: "uuid", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -149,10 +149,10 @@ namespace Infrastructure.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    RecipeId = table.Column<Guid>(type: "uuid", nullable: false),
                     Position = table.Column<int>(type: "integer", nullable: false),
                     Text = table.Column<string>(type: "text", nullable: false),
-                    Name = table.Column<string>(type: "text", nullable: true)
+                    Name = table.Column<string>(type: "text", nullable: true),
+                    RecipeId = table.Column<Guid>(type: "uuid", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -332,14 +332,14 @@ namespace Infrastructure.Migrations
                 column: "RecipeId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_RecipeCollections_OwnerUserId",
+                name: "IX_RecipeCollections_OwnerId",
                 table: "RecipeCollections",
-                column: "OwnerUserId");
+                column: "OwnerId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_RecipeCollections_OwnerUserId_Kind",
+                name: "IX_RecipeCollections_OwnerId_Kind",
                 table: "RecipeCollections",
-                columns: new[] { "OwnerUserId", "Kind" },
+                columns: new[] { "OwnerId", "Kind" },
                 unique: true,
                 filter: "\"Kind\" = 'Favorites'");
 

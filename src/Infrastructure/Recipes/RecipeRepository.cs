@@ -2,7 +2,6 @@ using App.Recipes;
 using Domain;
 using Domain.Recipes;
 using Microsoft.EntityFrameworkCore;
-using Pgvector.EntityFrameworkCore;
 using Pgvector;
 
 namespace Infrastructure.Recipes;
@@ -14,18 +13,16 @@ public sealed class RecipeRepository(RecipesDbContext db, IClock clock) : IRecip
         CancellationToken cancellationToken = default
     )
     {
-        var entity = await db.Recipes.AsNoTracking()
+        return await db.Recipes
+            .Include(r => r.Ingredients)
+            .Include(r => r.Instructions)
             .AsSplitQuery()
-            .Include(r => r.IngredientEntities)
-            .Include(r => r.InstructionEntities)
-            .SingleOrDefaultAsync(r => r.Id == id.Value, cancellationToken);
-
-        return entity?.ToDomain();
+            .SingleOrDefaultAsync(r => r.Id == id, cancellationToken);
     }
 
     public async Task<bool> ExistsAsync(RecipeId id, CancellationToken cancellationToken = default)
     {
-        return await db.Recipes.AnyAsync(r => r.Id == id.Value, cancellationToken);
+        return await db.Recipes.AnyAsync(r => r.Id == id, cancellationToken);
     }
 
     public async Task<RecipeId> SaveImportedAsync(
@@ -35,20 +32,29 @@ public sealed class RecipeRepository(RecipesDbContext db, IClock clock) : IRecip
         CancellationToken cancellationToken = default
     )
     {
-        var existing = await db.Recipes.FirstOrDefaultAsync(
-            r => r.Url == sourceUrl,
+        var exists = await db.Recipes.AnyAsync(
+            r => EF.Property<string>(r, "Url") == sourceUrl,
             cancellationToken
         );
 
-        if (existing is not null)
+        if (exists)
         {
-            return new RecipeId(existing.Id);
+            return await db.Recipes
+                .Where(r => EF.Property<string>(r, "Url") == sourceUrl)
+                .Select(r => r.Id)
+                .SingleAsync(cancellationToken);
         }
 
-        var entity = RecipeEntity.FromImport(recipe, sourceUrl, rawSchemaJson, clock.UtcNow);
-        await db.Recipes.AddAsync(entity, cancellationToken);
+        await db.Recipes.AddAsync(recipe, cancellationToken);
 
-        return new RecipeId(entity.Id);
+        var now = clock.UtcNow;
+        var entry = db.Entry(recipe);
+        entry.Property<string>("Url").CurrentValue = sourceUrl;
+        entry.Property<string>("JsonLd").CurrentValue = rawSchemaJson;
+        entry.Property<DateTimeOffset>("CreatedAt").CurrentValue = now;
+        entry.Property<DateTimeOffset>("UpdatedAt").CurrentValue = now;
+
+        return recipe.Id;
     }
 
     public async Task<IReadOnlyList<Recipe>> SearchAsync(
@@ -62,9 +68,16 @@ public sealed class RecipeRepository(RecipesDbContext db, IClock clock) : IRecip
         var queryVector = new Vector(queryEmbedding);
 
         var hitIds = await db.RecipeEmbeddings
-            .Where(e => e.Model == model && e.Dimensions == dimensions)
-            .OrderBy(e => e.Embedding.CosineDistance(queryVector))
-            .Take(limit)
+            .FromSqlInterpolated(
+                $"""
+                SELECT *
+                FROM "RecipeEmbeddings"
+                WHERE "Model" = {model} AND "Dimensions" = {dimensions}
+                ORDER BY "Embedding" <=> {queryVector}
+                LIMIT {limit}
+                """
+            )
+            .AsNoTracking()
             .Select(e => e.RecipeId)
             .ToListAsync(cancellationToken);
 
@@ -73,16 +86,17 @@ public sealed class RecipeRepository(RecipesDbContext db, IClock clock) : IRecip
             return [];
         }
 
-        var recipes = await db.Recipes.AsNoTracking()
+        var recipes = await db.Recipes
+            .AsNoTracking()
+            .Include(r => r.Ingredients)
+            .Include(r => r.Instructions)
             .AsSplitQuery()
-            .Include(r => r.IngredientEntities)
-            .Include(r => r.InstructionEntities)
             .Where(r => hitIds.Contains(r.Id))
             .ToDictionaryAsync(r => r.Id, cancellationToken);
 
         return hitIds
             .Where(recipes.ContainsKey)
-            .Select(id => recipes[id].ToDomain())
+            .Select(id => recipes[id])
             .ToList();
     }
 }
