@@ -16,20 +16,16 @@ public sealed class RecipeEmbeddingService(
     public async Task EnsureRecipeEmbeddingAsync(
         Guid recipeId,
         Recipe recipe,
-        RecipeEmbeddingModel model,
+        EmbeddingModel model,
         CancellationToken cancellationToken = default
     )
     {
-        var dimensions = model.Dimensions();
-        var modelId = model.OpenAiModelId();
-
         var canonicalText = textBuilder.Build(recipe);
         var inputHash = RecipeEmbeddingTextBuilder.ComputeInputHash(canonicalText);
 
         var alreadyExists = await repository.ExistsAsync(
             recipeId,
-            modelId,
-            dimensions,
+            model,
             inputHash,
             cancellationToken
         );
@@ -42,7 +38,7 @@ public sealed class RecipeEmbeddingService(
 
         var result = await embeddingGenerator.GenerateAsync(
             [canonicalText],
-            new EmbeddingGenerationOptions { Dimensions = dimensions },
+            new EmbeddingGenerationOptions { Dimensions = model.Dimensions },
             cancellationToken
         );
 
@@ -50,8 +46,7 @@ public sealed class RecipeEmbeddingService(
 
         await repository.EnsureEmbeddingAsync(
             recipeId,
-            modelId,
-            dimensions,
+            model,
             inputHash,
             embedding.Vector,
             cancellationToken
@@ -61,8 +56,8 @@ public sealed class RecipeEmbeddingService(
         logger.LogInformation(
             "Generated embedding for recipe {RecipeId} using {Model} ({Dimensions}d)",
             recipeId,
-            modelId,
-            dimensions
+            model.ProviderId,
+            model.Dimensions
         );
     }
 }

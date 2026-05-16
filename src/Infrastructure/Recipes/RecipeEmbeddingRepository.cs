@@ -1,4 +1,3 @@
-using App.Recipes;
 using App.Recipes.Ports;
 using Domain;
 using Domain.Recipes;
@@ -11,8 +10,7 @@ public sealed class RecipeEmbeddingRepository(AppDbContext db, IClock clock) : I
 {
     public Task<bool> ExistsAsync(
         Guid recipeId,
-        string model,
-        int dimensions,
+        EmbeddingModel model,
         string inputHash,
         CancellationToken cancellationToken = default
     )
@@ -22,8 +20,8 @@ public sealed class RecipeEmbeddingRepository(AppDbContext db, IClock clock) : I
         return db.RecipeEmbeddings.AnyAsync(
             e =>
                 e.RecipeId == id
-                && e.Model == model
-                && e.Dimensions == dimensions
+                && e.Model == model.ProviderId
+                && e.Dimensions == model.Dimensions
                 && e.InputHash == inputHash,
             cancellationToken
         );
@@ -31,8 +29,7 @@ public sealed class RecipeEmbeddingRepository(AppDbContext db, IClock clock) : I
 
     public async Task EnsureEmbeddingAsync(
         Guid recipeId,
-        string model,
-        int dimensions,
+        EmbeddingModel model,
         string inputHash,
         ReadOnlyMemory<float> embedding,
         CancellationToken cancellationToken = default
@@ -43,8 +40,8 @@ public sealed class RecipeEmbeddingRepository(AppDbContext db, IClock clock) : I
         var existing = await db.RecipeEmbeddings.FirstOrDefaultAsync(
             e =>
                 e.RecipeId == id
-                && e.Model == model
-                && e.Dimensions == dimensions
+                && e.Model == model.ProviderId
+                && e.Dimensions == model.Dimensions
                 && e.InputHash == inputHash,
             cancellationToken
         );
@@ -55,7 +52,7 @@ public sealed class RecipeEmbeddingRepository(AppDbContext db, IClock clock) : I
         }
 
         db.RecipeEmbeddings.Add(
-            RecipeEmbedding.Create(id, model, dimensions, inputHash, embedding, clock)
+            RecipeEmbedding.Create(id, model.ProviderId, model.Dimensions, inputHash, embedding, clock)
         );
     }
 }

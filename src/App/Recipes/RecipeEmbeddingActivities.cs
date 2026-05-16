@@ -14,7 +14,7 @@ public sealed class RecipeEmbeddingActivities(
     public async Task EnsureRecipeEmbeddingAsync(
         Guid recipeId,
         Recipe recipe,
-        RecipeEmbeddingModel model
+        EmbeddingModel model
     )
     {
         var ct = ActivityExecutionContext.Current.CancellationToken;

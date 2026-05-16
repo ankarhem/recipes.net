@@ -348,8 +348,8 @@ builder.Services.AddSingleton<IEmbeddingGenerator<string, Embedding<float>>>(sp 
 {
     var settings = sp.GetRequiredService<AppSettings>();
     var client = new OpenAIClient(settings.OpenAi.ApiKey);
-    var embeddingClient = client.GetEmbeddingClient(RecipeEmbeddingModel.TextEmbedding3Small.OpenAiModelId());
-    return embeddingClient.AsIEmbeddingGenerator(RecipeEmbeddingModel.TextEmbedding3Small.Dimensions());
+    var embeddingClient = client.GetEmbeddingClient(EmbeddingModel.TextEmbedding3Small.Instance.ProviderId);
+    return embeddingClient.AsIEmbeddingGenerator(EmbeddingModel.TextEmbedding3Small.Instance.Dimensions);
 });
 
 builder.Services.AddHttpClient<ICrawlerClient, CrawlerClient>();

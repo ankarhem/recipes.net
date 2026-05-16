@@ -24,6 +24,8 @@ public class RecipeServiceTests
         null
     );
 
+    private static readonly EmbeddingModel Model = EmbeddingModel.TextEmbedding3Small.Instance;
+
     [Fact]
     public async Task SearchRecipesAsync_GeneratesEmbeddingAndCallsRepository()
     {
@@ -37,12 +39,12 @@ public class RecipeServiceTests
             .GenerateAsync(default!, default)
             .ReturnsForAnyArgs(
                 (Func<NSubstitute.Core.CallInfo, Task<RecipeSearchEmbedding>>)(
-                    _ => Task.FromResult(new RecipeSearchEmbedding(embeddingVector, "text-embedding-3-small", 1536))
+                    _ => Task.FromResult(new RecipeSearchEmbedding(embeddingVector, Model))
                 )
             );
 
         repository
-            .SearchAsync(default!, default!, default!, default!, default)
+            .SearchAsync(default!, default!, default!, default)
             .ReturnsForAnyArgs(
                 (Func<NSubstitute.Core.CallInfo, Task<IReadOnlyList<Recipe>>>)(
                     _ => Task.FromResult<IReadOnlyList<Recipe>>([SampleRecipe])
@@ -68,8 +70,7 @@ public class RecipeServiceTests
             .Received(1)
             .SearchAsync(
                 Arg.Any<ReadOnlyMemory<float>>(),
-                "text-embedding-3-small",
-                1536,
+                Model,
                 5,
                 Arg.Any<CancellationToken>()
             );
@@ -87,12 +88,12 @@ public class RecipeServiceTests
             .GenerateAsync(default!, default)
             .ReturnsForAnyArgs(
                 (Func<NSubstitute.Core.CallInfo, Task<RecipeSearchEmbedding>>)(
-                    _ => Task.FromResult(new RecipeSearchEmbedding(embeddingVector, "text-embedding-3-small", 1536))
+                    _ => Task.FromResult(new RecipeSearchEmbedding(embeddingVector, Model))
                 )
             );
 
         repository
-            .SearchAsync(default!, default!, default!, default!, default)
+            .SearchAsync(default!, default!, default!, default)
             .ReturnsForAnyArgs(
                 (Func<NSubstitute.Core.CallInfo, Task<IReadOnlyList<Recipe>>>)(
                     _ => Task.FromResult<IReadOnlyList<Recipe>>([])
@@ -118,12 +119,12 @@ public class RecipeServiceTests
             .GenerateAsync(default!, default)
             .ReturnsForAnyArgs(
                 (Func<NSubstitute.Core.CallInfo, Task<RecipeSearchEmbedding>>)(
-                    _ => Task.FromResult(new RecipeSearchEmbedding(embeddingVector, "text-embedding-3-small", 1536))
+                    _ => Task.FromResult(new RecipeSearchEmbedding(embeddingVector, Model))
                 )
             );
 
         repository
-            .SearchAsync(default!, default!, default!, default!, default)
+            .SearchAsync(default!, default!, default!, default)
             .ReturnsForAnyArgs(
                 (Func<NSubstitute.Core.CallInfo, Task<IReadOnlyList<Recipe>>>)(
                     _ => Task.FromResult<IReadOnlyList<Recipe>>([])
@@ -138,8 +139,7 @@ public class RecipeServiceTests
             .Received(1)
             .SearchAsync(
                 Arg.Any<ReadOnlyMemory<float>>(),
-                Arg.Any<string>(),
-                Arg.Any<int>(),
+                Arg.Any<EmbeddingModel>(),
                 10,
                 Arg.Any<CancellationToken>()
             );

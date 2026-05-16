@@ -8,7 +8,7 @@ public interface IRecipeEmbeddingService
     Task EnsureRecipeEmbeddingAsync(
         Guid recipeId,
         Recipe recipe,
-        RecipeEmbeddingModel model,
+        EmbeddingModel model,
         CancellationToken cancellationToken = default
     );
 }

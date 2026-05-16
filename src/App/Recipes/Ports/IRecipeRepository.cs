@@ -18,8 +18,7 @@ public interface IRecipeRepository
 
     Task<IReadOnlyList<Recipe>> SearchAsync(
         ReadOnlyMemory<float> queryEmbedding,
-        string model,
-        int dimensions,
+        EmbeddingModel model,
         int limit,
         CancellationToken cancellationToken = default
     );

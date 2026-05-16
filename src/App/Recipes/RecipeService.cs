@@ -25,7 +25,6 @@ public sealed class RecipeService(
         return await recipeRepository.SearchAsync(
             embedding.Vector,
             embedding.Model,
-            embedding.Dimensions,
             limit,
             cancellationToken
         );

@@ -34,6 +34,8 @@ public class RecipeEmbeddingServiceTests
         ExpectedCanonicalText
     );
 
+    private static readonly EmbeddingModel Model = EmbeddingModel.TextEmbedding3Small.Instance;
+
     [Fact]
     public async Task EnsureRecipeEmbeddingAsync_SkipsWhenAlreadyExists()
     {
@@ -42,7 +44,7 @@ public class RecipeEmbeddingServiceTests
         var generator = Substitute.For<IEmbeddingGenerator<string, Embedding<float>>>();
 
         repository
-            .ExistsAsync(default!, default!, default!, default!, default)
+            .ExistsAsync(default!, default!, default!, default)
             .ReturnsForAnyArgs(true);
 
         var unitOfWork = Substitute.For<IUnitOfWork>();
@@ -57,14 +59,13 @@ public class RecipeEmbeddingServiceTests
         await service.EnsureRecipeEmbeddingAsync(
             Guid.NewGuid(),
             SampleRecipe,
-            RecipeEmbeddingModel.TextEmbedding3Small
+            Model
         );
 
         await generator.DidNotReceiveWithAnyArgs().GenerateAsync(default!, default!, default);
         await repository
             .DidNotReceiveWithAnyArgs()
             .EnsureEmbeddingAsync(
-                default!,
                 default!,
                 default!,
                 default!,
@@ -85,7 +86,7 @@ public class RecipeEmbeddingServiceTests
         embeddingVector[0] = 0.42f;
 
         repository
-            .ExistsAsync(default!, default!, default!, default!, default)
+            .ExistsAsync(default!, default!, default!, default)
             .ReturnsForAnyArgs(false);
 
         generator
@@ -116,15 +117,14 @@ public class RecipeEmbeddingServiceTests
         await service.EnsureRecipeEmbeddingAsync(
             recipeId,
             SampleRecipe,
-            RecipeEmbeddingModel.TextEmbedding3Small
+            Model
         );
 
         await repository
             .Received(1)
             .EnsureEmbeddingAsync(
                 recipeId,
-                "text-embedding-3-small",
-                1536,
+                Model,
                 ExpectedInputHash,
                 Arg.Any<ReadOnlyMemory<float>>(),
                 Arg.Any<CancellationToken>()
@@ -140,7 +140,7 @@ public class RecipeEmbeddingServiceTests
         var generator = Substitute.For<IEmbeddingGenerator<string, Embedding<float>>>();
 
         repository
-            .ExistsAsync(default!, default!, default!, default!, default)
+            .ExistsAsync(default!, default!, default!, default)
             .ReturnsForAnyArgs(false);
 
         generator
@@ -169,7 +169,7 @@ public class RecipeEmbeddingServiceTests
         await service.EnsureRecipeEmbeddingAsync(
             Guid.NewGuid(),
             SampleRecipe,
-            RecipeEmbeddingModel.TextEmbedding3Small
+            Model
         );
 
         await generator
@@ -178,7 +178,7 @@ public class RecipeEmbeddingServiceTests
                 Arg.Is<IEnumerable<string>>(texts =>
                     texts.Count() == 1 && texts.First() == ExpectedCanonicalText
                 ),
-                Arg.Is<EmbeddingGenerationOptions>(o => o.Dimensions == 1536),
+                Arg.Is<EmbeddingGenerationOptions>(o => o.Dimensions == Model.Dimensions),
                 Arg.Any<CancellationToken>()
             );
 
@@ -186,8 +186,7 @@ public class RecipeEmbeddingServiceTests
             .Received(1)
             .EnsureEmbeddingAsync(
                 Arg.Any<Guid>(),
-                "text-embedding-3-small",
-                1536,
+                Model,
                 ExpectedInputHash,
                 Arg.Any<ReadOnlyMemory<float>>(),
                 Arg.Any<CancellationToken>()

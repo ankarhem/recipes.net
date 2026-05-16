@@ -1,9 +1,10 @@
+using Domain.Recipes;
+
 namespace App.Recipes.Ports;
 
 public readonly record struct RecipeSearchEmbedding(
     ReadOnlyMemory<float> Vector,
-    string Model,
-    int Dimensions
+    EmbeddingModel Model
 );
 
 public interface IRecipeSearchEmbeddingGenerator

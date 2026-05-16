@@ -1,4 +1,3 @@
-using App.Recipes;
 using App.Recipes.Ports;
 using Domain;
 using Domain.Recipes;
@@ -61,8 +60,7 @@ public sealed class RecipeRepository(AppDbContext db, IClock clock) : IRecipeRep
 
     public async Task<IReadOnlyList<Recipe>> SearchAsync(
         ReadOnlyMemory<float> queryEmbedding,
-        string model,
-        int dimensions,
+        EmbeddingModel model,
         int limit,
         CancellationToken cancellationToken = default
     )
@@ -74,7 +72,7 @@ public sealed class RecipeRepository(AppDbContext db, IClock clock) : IRecipeRep
                 $"""
                 SELECT *
                 FROM "RecipeEmbeddings"
-                WHERE "Model" = {model} AND "Dimensions" = {dimensions}
+                WHERE "Model" = {model.ProviderId} AND "Dimensions" = {model.Dimensions}
                 ORDER BY "Embedding" <=> {queryVector}
                 LIMIT {limit}
                 """
